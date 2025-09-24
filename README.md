@@ -9,11 +9,11 @@ CREATE DATABASE mydatabase;
 
 ## application.properties 설정
 
-실행 전에, 총 4개의 환경변수를 설정해야 합니다.
-- DB_URL : 데이터베이스 URL - 위에서 생성한 데이터베이스의 이름과 호스트 정보를 포함해야 합니다.
-  - 예: jdbc:postgresql://localhost:5432/mydatabase
-- DB_USERNAME : 데이터베이스 사용자명
+실행 전에, 총 몇 가지의 환경변수를 설정해야 합니다.
 - DB_PASSWORD : 데이터베이스 비밀번호
+- DB_HOST : 데이터베이스 호스트 (예: localhost)
+- DB_PORT : 데이터베이스 포트 (예: 5432)
+- DB_NAME : 데이터베이스 이름 (예: smart_health_dog)
 - JWT_SECRET : JWT 토큰 서명에 사용할 비밀 키
   - https://jwtsecrets.com/#generator 에서 256 비트로 설정 후 생성
 
