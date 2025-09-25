@@ -14,7 +14,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.sql.Timestamp;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -53,8 +52,8 @@ public class User {
     @Column(name = "login_attempt_started_at")
     private Timestamp loginAttemptStartedAt;
 
-    @Column(name = "password_reset_token")
-    private UUID passwordResetToken;
+    @Column(name = "password_reset_token", length = 255)
+    private String passwordResetToken;
 
     @Column(name = "password_reset_token_expiry")
     private Timestamp passwordResetTokenExpiry;
@@ -65,8 +64,8 @@ public class User {
     @Column(name = "password_reset_token_verify_fail_count")
     private Short passwordResetTokenVerifyFailCount;
 
-    @Column(name = "email_verification_token")
-    private UUID emailVerificationToken;
+    @Column(name = "email_verification_token", length = 8)
+    private String emailVerificationToken;
 
     @Column(name = "email_verification_expiry")
     private Timestamp emailVerificationExpiry;
