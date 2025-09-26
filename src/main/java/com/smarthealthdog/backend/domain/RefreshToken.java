@@ -9,7 +9,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -27,5 +27,5 @@ public class RefreshToken {
     private User user;
 
     @Column(name = "expires_at", nullable = false)
-    private Timestamp expiresAt;
+    private Instant expiresAt;
 }

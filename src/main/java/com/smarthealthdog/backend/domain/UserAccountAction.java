@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.sql.Timestamp;
+import java.time.Instant;
 
 @Getter
 @Setter
@@ -34,5 +34,5 @@ public class UserAccountAction {
     private User actionBy;
 
     @Column(name = "action_timestamp", nullable = false)
-    private Timestamp actionTimestamp;
+    private Instant actionTimestamp;
 }
