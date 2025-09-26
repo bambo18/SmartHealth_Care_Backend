@@ -2,19 +2,17 @@ package com.smarthealthdog.backend.validation;
 
 import java.util.List;
 
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
-
+@Component
 public class UserCreateRequestErrorCode {
-    public static final ErrorCode INVALID_NICKNAME = ErrorCode.INVALID_NICKNAME;
-    public static final ErrorCode INVALID_PASSWORD = ErrorCode.INVALID_PASSWORD;
-    public static final ErrorCode INVALID_EMAIL = ErrorCode.INVALID_EMAIL;
+    private final ErrorCode INVALID_NICKNAME = ErrorCode.INVALID_NICKNAME;
+    private final ErrorCode INVALID_PASSWORD = ErrorCode.INVALID_PASSWORD;
+    private final ErrorCode INVALID_EMAIL = ErrorCode.INVALID_EMAIL;
+    private final ErrorCode INVALID_INPUT = ErrorCode.INVALID_INPUT;
 
-    private UserCreateRequestErrorCode() {
-        // Prevent instantiation
-    }
-
-    public static List<ErrorCode> getErrorCode(MethodArgumentNotValidException e) {
+    public List<ErrorCode> getErrorCode(MethodArgumentNotValidException e) {
         List<String> fields = e.getBindingResult().getFieldErrors().stream()
             .map(fieldError -> fieldError.getField())
             .toList();
@@ -29,12 +27,12 @@ public class UserCreateRequestErrorCode {
             .toList();
     }
 
-    private static ErrorCode getErrorCode(String fieldName) {
+    private ErrorCode getErrorCode(String fieldName) {
         return switch (fieldName) {
             case "nickname" -> INVALID_NICKNAME;
             case "password" -> INVALID_PASSWORD;
             case "email" -> INVALID_EMAIL;
-            default -> ErrorCode.INVALID_INPUT;
+            default -> INVALID_INPUT;
         };
     }
 }
