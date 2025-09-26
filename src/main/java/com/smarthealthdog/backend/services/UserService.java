@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.User;
@@ -14,6 +15,7 @@ import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.validation.ErrorCode;
 import com.smarthealthdog.backend.validation.NicknameValidator;
 import com.smarthealthdog.backend.validation.PasswordValidator;
+
 
 @Service
 public class UserService {
@@ -124,6 +126,7 @@ public class UserService {
         userRepository.save(user);
     }
 
+    @Transactional
     public void incrementEmailVerificationFailCount(User user) {
         userRepository.incrementEmailVerificationFailCount(user.getId());
     }

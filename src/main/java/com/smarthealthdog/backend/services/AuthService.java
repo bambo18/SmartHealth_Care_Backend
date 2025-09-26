@@ -53,7 +53,6 @@ public class AuthService {
         );
     }
 
-    @Transactional
     public User verifyEmailToken(String email, String token) {
         Optional<User> userOpt = userService.getUserByEmail(email);
         // 이메일로 사용자를 찾을 수 없는 경우 예외 발생
