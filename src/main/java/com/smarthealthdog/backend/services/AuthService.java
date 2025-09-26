@@ -1,18 +1,17 @@
 package com.smarthealthdog.backend.services;
 
-import java.sql.Timestamp;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.smarthealthdog.backend.domain.RefreshToken;
+import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.LoginResponse;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
@@ -31,6 +30,9 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserService userService;
     private final JWTUtils jwtUtils;
+
+    @Value("${jwt.refresh-token.expiration.days}")
+    private Long refreshTokenExpirationInDays;
 
     @Autowired
     public AuthService(
@@ -51,16 +53,22 @@ public class AuthService {
         );
     }
 
+    @Transactional
     public User verifyEmailToken(String email, String token) {
         Optional<User> userOpt = userService.getUserByEmail(email);
+        // 이메일로 사용자를 찾을 수 없는 경우 예외 발생
         if (userOpt.isEmpty()) {
-            throw new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND);
+            throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
         }
 
         User user = userOpt.get();
 
-        // 역할이 UNVERIFIED_USER인지 확인
-        if (!user.getRole().getName().equals("UNVERIFIED_USER")) {
+        if (user.getEmailVerificationFailCount() >= 5) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
+        }
+
+        // 역할이 UNVERIFIED_USER이 아닌 경우(이미 인증된 경우) 예외 발생
+        if (!user.getRole().getName().equals(RoleEnum.UNVERIFIED_USER)) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
         }
 
@@ -70,8 +78,9 @@ public class AuthService {
             throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
         }
 
-        // 토큰이 일치하는지 확인
+        // 토큰이 불일치하는 경우 예외 발생
         if (!token.equals(user.getEmailVerificationToken())) {
+            userService.incrementEmailVerificationFailCount(user);
             throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
         }
 
@@ -80,7 +89,8 @@ public class AuthService {
 
     @Transactional
     public void activateUser(User user) {
-        if (!user.getRole().getName().equals("UNVERIFIED_USER")) {
+        // 역할이 UNVERIFIED_USER이 아닌 경우(이미 인증된 경우) 예외 발생
+        if (!user.getRole().getName().equals(RoleEnum.UNVERIFIED_USER)) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
         }
 
@@ -127,14 +137,12 @@ public class AuthService {
         User user = userOpt.get();
 
         Date issuedAt = new Date();
-        LocalDateTime expiresAt = issuedAt.toInstant().atZone(ZoneOffset.UTC).toLocalDateTime().plusDays(7);
+        Instant expiresAt = Instant.now().plusSeconds(refreshTokenExpirationInDays * 24 * 60 * 60);
 
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUser(user);
         refreshToken.setId(UUID.randomUUID());
-        refreshToken.setExpiresAt(
-            Timestamp.valueOf(expiresAt)
-        );
+        refreshToken.setExpiresAt(expiresAt);
 
         refreshTokenRepository.save(refreshToken);
         return jwtUtils.generateRefreshToken(

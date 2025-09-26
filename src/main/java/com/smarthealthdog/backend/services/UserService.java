@@ -123,4 +123,8 @@ public class UserService {
         user.setEmailVerificationExpiry(now);
         userRepository.save(user);
     }
+
+    public void incrementEmailVerificationFailCount(User user) {
+        userRepository.incrementEmailVerificationFailCount(user.getId());
+    }
 }
