@@ -17,8 +17,9 @@ public class Role {
     @Column(name = "id", nullable = false)
     private Short id;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "name", nullable = false, length = 255, unique = true)
-    private String name;
+    private RoleEnum name;
 
     @Column(name = "description", length = 1024)
     private String description;
