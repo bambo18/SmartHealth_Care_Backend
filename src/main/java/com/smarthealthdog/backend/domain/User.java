@@ -14,6 +14,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.sql.Timestamp;
+import java.time.Instant;
 
 @Getter
 @Setter
@@ -47,40 +48,48 @@ public class User {
         nullable = false,
         columnDefinition = "SMALLINT DEFAULT 0"
     )
-    private Short loginAttempt;
+    private Short loginAttempt = 0;
 
     @Column(name = "login_attempt_started_at")
-    private Timestamp loginAttemptStartedAt;
+    private Instant loginAttemptStartedAt;
 
     @Column(name = "password_reset_token", length = 255)
     private String passwordResetToken;
 
     @Column(name = "password_reset_token_expiry")
-    private Timestamp passwordResetTokenExpiry;
+    private Instant passwordResetTokenExpiry;
     
     @Column(name = "password_reset_requested_at")
-    private Timestamp passwordResetRequestedAt;
+    private Instant passwordResetRequestedAt;
 
-    @Column(name = "password_reset_token_verify_fail_count")
-    private Short passwordResetTokenVerifyFailCount;
+    @Column(
+        name = "password_reset_token_verify_fail_count", 
+        columnDefinition = "SMALLINT DEFAULT 0",
+        nullable = false
+    )
+    private Short passwordResetTokenVerifyFailCount = 0;
 
     @Column(name = "email_verification_token", length = 8)
     private String emailVerificationToken;
 
     @Column(name = "email_verification_expiry")
-    private Timestamp emailVerificationExpiry;
+    private Instant emailVerificationExpiry;
 
     @Column(name = "email_verification_requested_at")
-    private Timestamp emailVerificationRequestedAt;
+    private Instant emailVerificationRequestedAt;
 
-    @Column(name = "email_verification_fail_count")
-    private Short emailVerificationFailCount;
+    @Column(
+        name = "email_verification_fail_count", 
+        columnDefinition = "SMALLINT DEFAULT 0", 
+        nullable = false
+    )
+    private Short emailVerificationFailCount = 0;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
-    private Timestamp createdAt;
+    private Instant createdAt;
 
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
-    private Timestamp updatedAt;
+    private Instant updatedAt;
 }
