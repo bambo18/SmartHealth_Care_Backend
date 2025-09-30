@@ -114,7 +114,7 @@ public class UserService {
         return passwordEncoder.matches(rawPassword, user.getPassword());
     }
 
-    public void changeUnverifiedUserToUser(User user) {
+    public void changeRoleToVerifiedUser(User user) {
         Role userRole = roleService.getUserRole();
         user.setRole(userRole);
         userRepository.save(user);
@@ -124,6 +124,10 @@ public class UserService {
         Instant now = Instant.now();
         user.setEmailVerificationExpiry(now);
         userRepository.save(user);
+    }
+
+    public void resetEmailVerificationFailCount(User user) {
+        userRepository.resetEmailVerificationFailCount(user.getId());
     }
 
     @Transactional

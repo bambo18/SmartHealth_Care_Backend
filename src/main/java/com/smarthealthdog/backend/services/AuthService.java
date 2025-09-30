@@ -93,8 +93,9 @@ public class AuthService {
             throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
         }
 
-        userService.changeUnverifiedUserToUser(user);
+        userService.changeRoleToVerifiedUser(user);
         userService.expireEmailVerificationToken(user);
+        userService.resetEmailVerificationFailCount(user);
     }
 
     public String generateAccessToken(String refreshToken) {

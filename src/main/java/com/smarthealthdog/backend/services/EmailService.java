@@ -1,5 +1,6 @@
 package com.smarthealthdog.backend.services;
 
+import java.time.Instant;
 import java.util.Date;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,8 +37,9 @@ public class EmailService {
         user.setEmailVerificationToken(verificationCode);
 
         Date now = new Date();
-        user.setEmailVerificationRequestedAt(now.toInstant());
-        user.setEmailVerificationExpiry(now.toInstant().plusSeconds(emailVerificationExpiryMinutes * 60L));
+        Instant instant = now.toInstant();
+        user.setEmailVerificationRequestedAt(instant);
+        user.setEmailVerificationExpiry(instant.plusSeconds(emailVerificationExpiryMinutes * 60L));
         userRepository.save(user);
 
         SimpleMailMessage message = new SimpleMailMessage();
