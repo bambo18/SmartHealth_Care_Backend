@@ -5,6 +5,7 @@ import com.smarthealthdog.backend.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -20,5 +21,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Modifying
     @Query("UPDATE User u SET u.emailVerificationFailCount = u.emailVerificationFailCount + 1 WHERE u.id = :userId")
-    void incrementEmailVerificationFailCount(Long userId);
+    int incrementEmailVerificationFailCount(@Param("userId") Long userId);
+
+    @Modifying
+    @Query("UPDATE User u SET u.emailVerificationFailCount = 0 WHERE u.id = :userId")
+    int resetEmailVerificationFailCount(@Param("userId") Long userId);
 }
