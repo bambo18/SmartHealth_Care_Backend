@@ -13,6 +13,10 @@ public class UserCreateRequestErrorCode {
     private final ErrorCode INVALID_INPUT = ErrorCode.INVALID_INPUT;
 
     public List<ErrorCode> getErrorCode(MethodArgumentNotValidException e) {
+        if (e == null || e.getBindingResult() == null) {
+            return List.of(ErrorCode.INVALID_INPUT);
+        }
+
         List<String> fields = e.getBindingResult().getFieldErrors().stream()
             .map(fieldError -> fieldError.getField())
             .toList();

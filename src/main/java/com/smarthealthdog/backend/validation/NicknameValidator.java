@@ -9,12 +9,6 @@ public class NicknameValidator {
             return false; // Length requirement
         }
 
-        for (char ch : nickname.toCharArray()) {
-            if (!Character.isLetterOrDigit(ch) && ch != '_' && ch != '-') {
-                return false; // Invalid character found
-            }
-        }
-
         return true; // All conditions met
     } 
 }
