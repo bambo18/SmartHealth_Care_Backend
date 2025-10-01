@@ -1,12 +1,11 @@
 package com.smarthealthdog.backend.validation;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import java.util.List;
@@ -15,93 +14,181 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 // Use MockitoExtension to enable Mockito annotations for JUnit 5
-@ExtendWith(MockitoExtension.class)
+@SpringBootTest
+@ActiveProfiles("test")
 class ValidErrorCodeFinderTest {
 
-    // 1. Class Under Test (The class we are testing)
-    @InjectMocks
+    @Autowired
     private ValidErrorCodeFinder validErrorCodeFinder;
-
-    // 2. Mocked Dependency
-    @Mock
-    private UserCreateRequestErrorCode userCreateRequestErrorCode;
-
-    // 3. Mocked Exception/Result components
-    @Mock
-    private MethodArgumentNotValidException exception;
-
-    @Mock
-    private BindingResult bindingResult;
 
     // Mock DTOs to represent the objects that failed validation
     // These need to be actual classes/interfaces to allow for reflection (getClass().getSimpleName())
     private static class UserCreateRequest {}
     private static class OtherRequest {}
 
-
-    @BeforeEach
-    void setUp() {
-        // Set up the exception to return the mocked BindingResult for all tests
-        when(exception.getBindingResult()).thenReturn(bindingResult);
-    }
-
     @Test
-    void findErrorCode_forUserCreateRequest_shouldReturnSpecificErrorCode() {
+    void findErrorCode_forUserCreateRequest_shouldReturnErrorCodeINVALID_INPUT() {
         // Arrange
         // 1. Mock the target object to be the 'UserCreateRequest' DTO
+        MethodArgumentNotValidException exception = mock(MethodArgumentNotValidException.class);
+        BindingResult bindingResult = mock(BindingResult.class);
+        when(exception.getBindingResult()).thenReturn(bindingResult);
         when(bindingResult.getTarget()).thenReturn(new UserCreateRequest());
 
         // 2. Define the specific error code we expect from the dependency
-        List<ErrorCode> expectedCodes = List.of(ErrorCode.INVALID_EMAIL, ErrorCode.INVALID_PASSWORD);
-        when(userCreateRequestErrorCode.getErrorCode(exception)).thenReturn(expectedCodes);
+        List<ErrorCode> expectedCodes = List.of(ErrorCode.INVALID_INPUT);
 
         // Act
         List<ErrorCode> actualCodes = validErrorCodeFinder.findErrorCode(exception);
 
         // Assert
-        // 1. Verify that the correct codes were returned
-        assertEquals(expectedCodes, actualCodes, "Should return the codes resolved by UserCreateRequestErrorCode.");
-
-        // 2. Verify that the dependency method was actually called
-        verify(userCreateRequestErrorCode, times(1)).getErrorCode(exception);
+        assertEquals(expectedCodes, actualCodes, "The returned error codes should match the expected codes.");
     }
 
     @Test
-    void findErrorCode_forUnknownDto_shouldReturnInvalidInputDefault() {
+    void findErrorCode_forOtherRequest_shouldReturnErrorCodeINVALID_INPUT() {
         // Arrange
-        // 1. Mock the target object to be an 'OtherRequest' (which is not handled in the switch case)
+        // 1. Mock the target object to be a different DTO
+        MethodArgumentNotValidException exception = mock(MethodArgumentNotValidException.class);
+        BindingResult bindingResult = mock(BindingResult.class);
+        when(exception.getBindingResult()).thenReturn(bindingResult);
         when(bindingResult.getTarget()).thenReturn(new OtherRequest());
 
-        // 2. Define the expected default error code
+        // 2. Define the specific error code we expect from the dependency
         List<ErrorCode> expectedCodes = List.of(ErrorCode.INVALID_INPUT);
 
         // Act
         List<ErrorCode> actualCodes = validErrorCodeFinder.findErrorCode(exception);
 
         // Assert
-        // 1. Verify that the default code was returned
-        assertEquals(expectedCodes, actualCodes, "Should return the default INVALID_INPUT code.");
-
-        // 2. Verify that the dependency method was *not* called for the default case
-        verify(userCreateRequestErrorCode, never()).getErrorCode(exception);
+        assertEquals(expectedCodes, actualCodes, "The returned error codes should match the expected codes.");
     }
 
     @Test
-    void findErrorCode_whenBindingResultTargetIsNull_shouldReturnInvalidInputDefault() {
+    void findErrorCode_forNullException_shouldReturnErrorCodeINVALID_INPUT() {
         // Arrange
-        // Mock the target to be null (though Spring usually prevents this in a real scenario)
-        when(bindingResult.getTarget()).thenReturn(null);
+        MethodArgumentNotValidException exception = null;
+
+        // Define the expected error code
+        List<ErrorCode> expectedCodes = List.of(ErrorCode.INVALID_INPUT);
 
         // Act
         List<ErrorCode> actualCodes = validErrorCodeFinder.findErrorCode(exception);
 
         // Assert
-        // A NullPointerException on getClass().getSimpleName() will happen here unless target.getClass() is checked
-        // Assuming your framework/runtime handles a null target gracefully (e.g. throws a controlled exception
-        // or the simple name will be 'null', which falls to default) - A defensive check would be better.
-        // Based on the given code, if target is null, the code will likely throw a NullPointerException.
-        // However, if the code were written with a null check, it should fall to the default case.
+        assertEquals(expectedCodes, actualCodes, "The returned error codes should match the expected codes.");
+    }
+
+    @Test
+    void findErrorCode_forNullBindingResult_shouldReturnErrorCodeINVALID_INPUT() {
+        // Arrange
+        MethodArgumentNotValidException exception = mock(MethodArgumentNotValidException.class);
+        when(exception.getBindingResult()).thenReturn(null);
+
+        // Define the expected error code
         List<ErrorCode> expectedCodes = List.of(ErrorCode.INVALID_INPUT);
-        assertEquals(expectedCodes, actualCodes, "Should return the default INVALID_INPUT code.");
+
+        // Act
+        List<ErrorCode> actualCodes = validErrorCodeFinder.findErrorCode(exception);
+
+        // Assert
+        assertEquals(expectedCodes, actualCodes, "The returned error codes should match the expected codes.");
+    }
+
+    @Test 
+    void findErrorCode_forUserCreateRequest_shouldReturnErrorCodeINVALID_EMAIL() {
+        // Arrange
+        // 1. Mock the target object to be the 'UserCreateRequest' DTO
+        MethodArgumentNotValidException exception = mock(MethodArgumentNotValidException.class);
+        BindingResult bindingResult = mock(BindingResult.class);
+        when(exception.getBindingResult()).thenReturn(bindingResult);
+        when(bindingResult.getFieldErrors()).thenReturn(
+            List.of(new FieldError("objectName", "email", "message"))
+        );
+        when(bindingResult.getTarget()).thenReturn(new UserCreateRequest());
+
+        // 2. Define the specific error code we expect from the dependency
+        List<ErrorCode> expectedCodes = List.of(ErrorCode.INVALID_EMAIL);
+
+        // Act
+        List<ErrorCode> actualCodes = validErrorCodeFinder.findErrorCode(exception);
+
+        // Assert
+        assertEquals(expectedCodes, actualCodes, "The returned error codes should match the expected codes.");
+    }
+
+    @Test
+    void findErrorCode_forUserCreateRequest_shouldReturnErrorCodeINVALID_PASSWORD() {
+        // Arrange
+        // 1. Mock the target object to be the 'UserCreateRequest' DTO
+        MethodArgumentNotValidException exception = mock(MethodArgumentNotValidException.class);
+        BindingResult bindingResult = mock(BindingResult.class);
+        when(exception.getBindingResult()).thenReturn(bindingResult);
+        when(bindingResult.getFieldErrors()).thenReturn(
+            List.of(new FieldError("objectName", "password", "message"))
+        );
+        when(bindingResult.getTarget()).thenReturn(new UserCreateRequest());
+
+        // 2. Define the specific error code we expect from the dependency
+        List<ErrorCode> expectedCodes = List.of(ErrorCode.INVALID_PASSWORD);
+
+        // Act
+        List<ErrorCode> actualCodes = validErrorCodeFinder.findErrorCode(exception);
+
+        // Assert
+        assertEquals(expectedCodes, actualCodes, "The returned error codes should match the expected codes.");
+    }
+
+    @Test
+    void findErrorCode_forUserCreateRequest_shouldReturnErrorCodeINVALID_NICKNAME() {
+        // Arrange
+        // 1. Mock the target object to be the 'UserCreateRequest' DTO
+        MethodArgumentNotValidException exception = mock(MethodArgumentNotValidException.class);
+        BindingResult bindingResult = mock(BindingResult.class);
+        when(exception.getBindingResult()).thenReturn(bindingResult);
+        when(bindingResult.getFieldErrors()).thenReturn(
+            List.of(new FieldError("objectName", "nickname", "message"))
+        );
+        when(bindingResult.getTarget()).thenReturn(new UserCreateRequest());
+
+        // 2. Define the specific error code we expect from the dependency
+        List<ErrorCode> expectedCodes = List.of(ErrorCode.INVALID_NICKNAME);
+
+        // Act
+        List<ErrorCode> actualCodes = validErrorCodeFinder.findErrorCode(exception);
+
+        // Assert
+        assertEquals(expectedCodes, actualCodes, "The returned error codes should match the expected codes.");
+    }
+
+    // Return more than one error code
+    @Test
+    void findErrorCode_forUserCreateRequest_shouldReturnMultipleErrorCodes() {
+        // Arrange
+        // 1. Mock the target object to be the 'UserCreateRequest' DTO
+        MethodArgumentNotValidException exception = mock(MethodArgumentNotValidException.class);
+        BindingResult bindingResult = mock(BindingResult.class);
+        when(exception.getBindingResult()).thenReturn(bindingResult);
+        when(bindingResult.getFieldErrors()).thenReturn(
+            List.of(
+                new FieldError("objectName", "email", "message"),
+                new FieldError("objectName", "password", "message"),
+                new FieldError("objectName", "nickname", "message")
+            )
+        );
+        when(bindingResult.getTarget()).thenReturn(new UserCreateRequest());
+
+        // 2. Define the specific error code we expect from the dependency
+        List<ErrorCode> expectedCodes = List.of(
+            ErrorCode.INVALID_EMAIL,
+            ErrorCode.INVALID_PASSWORD,
+            ErrorCode.INVALID_NICKNAME
+        );
+
+        // Act
+        List<ErrorCode> actualCodes = validErrorCodeFinder.findErrorCode(exception);
+
+        // Assert
+        assertEquals(expectedCodes, actualCodes, "The returned error codes should match the expected codes.");
     }
 }

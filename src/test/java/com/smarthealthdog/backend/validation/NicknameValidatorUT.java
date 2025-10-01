@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class NicknameValidatorTest {
+public class NicknameValidatorUT {
         // The class under test
     private NicknameValidator validator;
 
