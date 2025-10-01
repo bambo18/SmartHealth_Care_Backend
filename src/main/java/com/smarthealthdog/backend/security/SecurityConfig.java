@@ -1,5 +1,7 @@
 package com.smarthealthdog.backend.security;
 
+import java.security.SecureRandom;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,6 +36,15 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
+    }
+
+    @Bean
+    public SecureRandom secureRandom() {
+        try {
+            return SecureRandom.getInstanceStrong();
+        } catch (Exception e) {
+            throw new RuntimeException("SecureRandom instance creation failed", e);
+        }
     }
 
     @Bean
