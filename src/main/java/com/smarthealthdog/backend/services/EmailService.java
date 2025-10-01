@@ -10,6 +10,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.utils.TokenGenerator;
@@ -33,6 +34,14 @@ public class EmailService {
 
     @Async
     public void sendEmailVerification(User user) {
+        if (user == null || user.getEmail() == null) {
+            throw new IllegalArgumentException("User and user email must not be null");
+        }
+
+        if (user.getRole().getName() == null || !user.getRole().getName().equals(RoleEnum.UNVERIFIED_USER)) {
+            throw new IllegalArgumentException("User must have ROLE_UNVERIFIED to send email verification");
+        }
+
         String verificationCode = tokenGenerator.generateEmailVerificationCode();
         user.setEmailVerificationToken(verificationCode);
 
