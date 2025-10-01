@@ -19,7 +19,7 @@ import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.repositories.RoleRepository;
 
 @ExtendWith(MockitoExtension.class)
-class RoleServiceTest {
+class RoleServiceUT {
 
     // 1. Mock the dependency
     @Mock

@@ -1,321 +1,274 @@
 package com.smarthealthdog.backend.services;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.Optional;
+
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
+import com.smarthealthdog.backend.repositories.RoleRepository;
+import com.smarthealthdog.backend.repositories.UserRepository;
+import com.smarthealthdog.backend.validation.ErrorCode;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.time.Instant;
-import java.util.Optional;
-
-@ExtendWith(MockitoExtension.class)
-class AuthServiceTest {
-
-    @Mock
-    private UserService userService;
-
-    @InjectMocks
+@SpringBootTest
+@ActiveProfiles("test")
+public class AuthServiceTest {
+    @Autowired 
     private AuthService authService;
 
-    // --- Setup for verifyEmailToken tests ---
+    @Autowired
+    private UserService userService;
 
-    private User createVerifiableUser(String email, String token, Instant expiry) {
-        Role role = new Role();
-        role.setName(RoleEnum.UNVERIFIED_USER);
-        role.setDescription("Role for unverified users");
+    @MockitoBean
+    private RoleRepository roleRepository;
 
-        User user = new User();
-        user.setId(1L);
-        user.setEmail(email);
-        user.setEmailVerificationToken(token);
-        user.setEmailVerificationExpiry(expiry);
-        user.setEmailVerificationFailCount((short) 0);
-        user.setRole(role);
-        return user;
-    }
+    @MockitoBean
+    private UserRepository userRepository;
 
-    // --- Setup for verifiedUser tests ---
-    private User createVerifiedUser() {
-        Role verifiedRole = new Role();
-        verifiedRole.setName(RoleEnum.USER);
-        verifiedRole.setDescription("Role for verified users");
+    @Test
+    void registerUser_shouldReturnCreatedUser() {
 
-        User user = new User();
-        user.setId(2L);
-        user.setEmail("verified_already@example.com");
-        user.setRole(verifiedRole);
-        // Ensure no verification data is set
-        user.setEmailVerificationToken(null);
-        user.setEmailVerificationExpiry(null);
-        user.setEmailVerificationFailCount((short) 0);
-        return user;
+        Role unverifiedUserRole = new Role();
+        unverifiedUserRole.setName(RoleEnum.UNVERIFIED_USER);
+
+        when(roleRepository.findByName(RoleEnum.UNVERIFIED_USER))
+            .thenReturn(Optional.of(unverifiedUserRole));
+
+        // Arrange
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "testuser",
+            "test@example.com",
+            "TestPassword123!"
+        );
+
+        // Act
+        User createdUser = authService.registerUser(createRequest);
+
+        assertTrue(createdUser.getRole().getName() == RoleEnum.UNVERIFIED_USER);
+        assertTrue(createdUser.getEmail().equals("test@example.com"));
+        assertTrue(createdUser.getNickname().equals("testuser"));
+
+        // Compare the hashed password with the raw password
+        assertTrue(createdUser.getPassword() != null);
+        assertTrue(createdUser.getPassword().length() > 0);
+        assertTrue(userService.checkUserPassword(createdUser, "TestPassword123!"));
     }
 
     @Test
-    void registerUser_shouldCallUserServiceCreateUser_andReturnUser() {
-        String nickname = "test_nick";
+    void verifyEmailToken_withInvalidEmail_shouldThrowException() {
+        // Arrange
+        String invalidEmail = "invalid@example.com";
+        String token = "someInvalidToken";
+
+        when(userRepository.findByEmail(invalidEmail)).thenReturn(Optional.empty());
+
+        // Use assertThrows to check if the method throws the correct exception
+        InvalidRequestDataException exception = assertThrows(
+            InvalidRequestDataException.class,
+            // Lambda function that calls the method being tested
+            () -> authService.verifyEmailToken(invalidEmail, token),
+            "Expected verifyEmailToken to throw InvalidRequestDataException for invalid email"
+        );
+
+        // Assert that the exception contains the expected error code
+        assertTrue(exception.getErrorCode() == ErrorCode.INVALID_EMAIL_VERIFICATION);
+    }
+
+    @Test
+    void verifyEmailToken_withExceedingFailCount_shouldThrowException() {
+        // Arrange
         String email = "test@example.com";
-        String password = "StrongPassword123!";
-        String passwordBCryptHash = "$2a$12$MFXz7l1CM1PwjILa/FvfQOImgCIYOwp/EtyHq0RaPg4fkgu.CxIhq"; // Example hash
-        
-        // Use a record or class that matches your method signature
-        UserCreateRequest mockRequest = new UserCreateRequest(nickname, email, password);
+        String token = "someValidToken";
 
-        // Create a fake User object that the mock UserService will return
-        User expectedUser = new User(); 
-        expectedUser.setId(1L);
-        expectedUser.setNickname(nickname);
-        expectedUser.setEmail(email);
-        expectedUser.setPassword(passwordBCryptHash);
+        User user = new User();
+        user.setEmailVerificationFailCount(5); // Exceeding the limit
 
-        // Program the mock: Tell the UserService what to return when it's called
-        when(userService.createUser(nickname, email, password))
-            .thenReturn(expectedUser);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
 
-        // ACT
-        User actualUser = authService.registerUser(mockRequest);
-
-        // 3. VERIFY: Assert that the AuthService correctly delegated the call 
-        // to the UserService with the exact arguments from the request.
-        verify(userService).createUser(
-            nickname, 
-            email, 
-            password
+        // Use assertThrows to check if the method throws the correct exception
+        InvalidRequestDataException exception = assertThrows(
+            InvalidRequestDataException.class,
+            // Lambda function that calls the method being tested
+            () -> authService.verifyEmailToken(email, token),
+            "Expected verifyEmailToken to throw InvalidRequestDataException for exceeding fail count"
         );
 
-        // Assert that AuthService returned the User object received from UserService
-        assertEquals(expectedUser, actualUser);
+        // Assert that the exception contains the expected error code
+        assertTrue(exception.getErrorCode() == ErrorCode.INVALID_EMAIL_VERIFICATION);
     }
 
     @Test
-    void verifyEmailToken_shouldReturnUser_whenTokenIsValid() {
-        // ARRANGE
-        String email = "valid@example.com";
-        String token = "valid_token";
-        // Set expiry to a time in the future (e.g., 5 minutes from now)
-        Instant futureExpiry = Instant.now().plusSeconds(300);
+    void verifyEmailToken_withNonUnverifiedUserRole_shouldThrowException() {
+        // Arrange
+        String email = "test@example.com";
+        String token = "someValidToken";
 
-        User expectedUser = createVerifiableUser(email, token, futureExpiry);
+        User user = new User();
+        Role role = new Role();
+        role.setName(RoleEnum.USER); // Not UNVERIFIED_USER role
 
-        when(userService.getUserByEmail(email)).thenReturn(Optional.of(expectedUser));
+        user.setEmailVerificationFailCount(0);
+        user.setRole(role); // Not UNVERIFIED_USER role
 
-        // ACT
-        User actualUser = authService.verifyEmailToken(email, token);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        // Use assertThrows to check if the method throws the correct exception
 
-        // ASSERT
-        // Verify getUserByEmail was called
-        verify(userService).getUserByEmail(email);
+        InvalidRequestDataException exception = assertThrows(
+            InvalidRequestDataException.class,
+            // Lambda function that calls the method being tested
+            () -> authService.verifyEmailToken(email, token),
+            "Expected verifyEmailToken to throw InvalidRequestDataException for non-UNVERIFIED_USER role"
+        );
 
-        // Ensure incrementEmailVerificationFailCount was NOT called
-        verify(userService, org.mockito.Mockito.never())
-            .incrementEmailVerificationFailCount(expectedUser);
-
-        // Assert the correct user was returned
-        assertEquals(expectedUser, actualUser);
+        // Assert that the exception contains the expected error code
+        assertTrue(exception.getErrorCode() == ErrorCode.INVALID_EMAIL_VERIFICATION);
     }
 
     @Test
-    void verifyEmailToken_shouldThrowException_whenUserNotFound() {
-        // ARRANGE
-        String email = "notfound@example.com";
-        String token = "any_token";
+    void verifyEmailToken_withExpiredToken_shouldThrowException() {
+        // Arrange
+        String email = "test@example.com";
+        String token = "someExpiredToken";
+        User user = new User();
+        Role role = new Role();
+        role.setName(RoleEnum.UNVERIFIED_USER); // UNVERIFIED_USER role
+        user.setRole(role);
+        user.setEmailVerificationFailCount(0);
+        user.setEmailVerificationExpiry(java.time.Instant.now().minusSeconds(3600)); // Expired 1 hour ago
 
-        when(userService.getUserByEmail(email)).thenReturn(Optional.empty());
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
 
-        // ACT & ASSERT
-        assertThrows(InvalidRequestDataException.class, () -> {
-            authService.verifyEmailToken(email, token);
+        // Use assertThrows to check if the method throws the correct exception
+        InvalidRequestDataException exception = assertThrows(
+            InvalidRequestDataException.class,
+            // Lambda function that calls the method being tested
+            () -> authService.verifyEmailToken(email, token),
+            "Expected verifyEmailToken to throw InvalidRequestDataException for expired token"
+        );
+
+        // Assert that the exception contains the expected error code
+        assertTrue(exception.getErrorCode() == ErrorCode.INVALID_EMAIL_VERIFICATION);
+    }
+
+    @Test
+    void verifyEmailToken_withMismatchedToken_shouldThrowException() {
+        // Arrange
+        String email = "test@example.com";
+        String token = "someMismatchedToken";
+
+        User user = new User();
+        Role role = new Role();
+        role.setName(RoleEnum.UNVERIFIED_USER); // UNVERIFIED_USER role
+        user.setRole(role);
+
+        user.setEmailVerificationFailCount(0);
+        user.setEmailVerificationExpiry(java.time.Instant.now().plusSeconds(3600)); // Valid for 1 more hour
+        user.setEmailVerificationToken("actualTokenValue"); // Actual token value
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(userRepository.incrementEmailVerificationFailCount(user.getId())).thenAnswer(invocation -> {
+            user.setEmailVerificationFailCount(user.getEmailVerificationFailCount() + 1);
+            return user.getEmailVerificationFailCount();
         });
 
+        // Use assertThrows to check if the method throws the correct exception
+        InvalidRequestDataException exception = assertThrows(
+            InvalidRequestDataException.class,
+            // Lambda function that calls the method being tested
+            () -> authService.verifyEmailToken(email, token),
+            "Expected verifyEmailToken to throw InvalidRequestDataException for mismatched token"
+        );
 
-        // Verify the correct exception details
-        // assertEquals(ErrorCode.INVALID_EMAIL_VERIFICATION, exception.getErrorCode()); // Assuming getErrorCode exists
-        verify(userService).getUserByEmail(email);
-        verify(userService, org.mockito.Mockito.never())
-            .incrementEmailVerificationFailCount(org.mockito.Mockito.any());
-
+        // Assert that the exception contains the expected error code
+        assertTrue(exception.getErrorCode() == ErrorCode.INVALID_EMAIL_VERIFICATION);
+        assertTrue(user.getEmailVerificationFailCount() == 1, "The email verification fail count should be incremented.");
     }
 
     @Test
-    void verifyEmailToken_shouldThrowException_whenFailCountIsFiveOrMore() {
-        // ARRANGE
-        String email = "failcount@example.com";
-        String token = "valid_token";
-        Instant futureExpiry = Instant.now().plusSeconds(300);
+    void verifyEmailToken_withValidToken_shouldReturnUser() {
+        // Arrange
+        String email = "test@example.com";
+        String token = "someValidToken";
 
-        User user = createVerifiableUser(email, token, futureExpiry);
-        user.setEmailVerificationFailCount((short) 5); // Fail count is 5
+        User user = new User();
+        Role role = new Role();
+        role.setName(RoleEnum.UNVERIFIED_USER); // UNVERIFIED_USER role
+        user.setRole(role);
+        user.setEmailVerificationFailCount(0);
+        user.setEmailVerificationExpiry(java.time.Instant.now().plusSeconds(3600)); // Valid for 1 more hour
+        user.setEmailVerificationToken(token); // Matching token
 
-        when(userService.getUserByEmail(email)).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(userRepository.incrementEmailVerificationFailCount(user.getId())).thenReturn(1);
+        // Act
 
-        // ACT & ASSERT
-        assertThrows(InvalidRequestDataException.class, () -> {
-            authService.verifyEmailToken(email, token);
-        });
-        
-        verify(userService).getUserByEmail(email);
-        verify(userService, org.mockito.Mockito.never())
-            .incrementEmailVerificationFailCount(user);
+        User returnedUser = authService.verifyEmailToken(email, token);
+        // Assert
+
+        assertTrue(returnedUser == user, "The returned user should match the expected user.");
+        verify(userRepository).findByEmail(email);
     }
 
     @Test
-    void verifyEmailToken_shouldThrowException_whenUserIsAlreadyVerified() {
-        // ARRANGE
-        String email = "verified@example.com";
-        String token = "valid_token";
-        Instant futureExpiry = Instant.now().plusSeconds(300);
+    void activateUser_withNonUnverifiedUserRole_shouldThrowException() {
+        // Arrange
+        User user = new User();
+        Role role = new Role();
+        role.setName(RoleEnum.USER); // Not UNVERIFIED_USER role
+        user.setRole(role);
 
-        User user = createVerifiableUser(email, token, futureExpiry);
+        // Use assertThrows to check if the method throws the correct exception
+        InvalidRequestDataException exception = assertThrows(
+            InvalidRequestDataException.class,
+            // Lambda function that calls the method being tested
+            () -> authService.activateUser(user),
+            "Expected activateUser to throw InvalidRequestDataException for non-UNVERIFIED_USER role"
+        );
+
+        // Assert that the exception contains the expected error code
+        assertTrue(exception.getErrorCode() == ErrorCode.INVALID_EMAIL_VERIFICATION);
+    }
+
+    @Test
+    void activateUser_withUnverifiedUserRole_shouldActivateUser() {
+        // Arrange
+        User user = new User();
+        Role unverifiedRole = new Role();
+        unverifiedRole.setName(RoleEnum.UNVERIFIED_USER);
+        user.setRole(unverifiedRole);
+
         Role verifiedRole = new Role();
         verifiedRole.setName(RoleEnum.USER);
-        // Change role to a verified role
-        user.setRole(verifiedRole);
 
-        when(userService.getUserByEmail(email)).thenReturn(Optional.of(user));
+        when(roleRepository.findByName(RoleEnum.USER))
+            .thenReturn(Optional.of(verifiedRole));
 
-        // ACT & ASSERT
-        assertThrows(InvalidRequestDataException.class, () -> {
-            authService.verifyEmailToken(email, token);
+        when(userRepository.save(user)).thenReturn(user);
+        when(userRepository.resetEmailVerificationFailCount(user.getId())).thenAnswer(invocation -> {
+            user.setEmailVerificationFailCount(0);
+            return user.getEmailVerificationFailCount();
         });
 
-        verify(userService).getUserByEmail(email);
-        verify(userService, org.mockito.Mockito.never())
-            .incrementEmailVerificationFailCount(user);
-    }
+        // Act
+        authService.activateUser(user);
 
-    @Test
-    void verifyEmailToken_shouldThrowException_whenExpiryTimeIsNull() {
-        // ARRANGE
-        String email = "noexpiry@example.com";
-        String token = "valid_token";
-        
-        User user = createVerifiableUser(email, token, null); // Expiry is null
+        // Assert
+        assertTrue(user.getRole().getName() == RoleEnum.USER, "The user's role should be changed to USER.");
+        assertTrue(user.getEmailVerificationToken() == null, "The email verification token should be expired (set to null).");
+        assertTrue(user.getEmailVerificationFailCount() == 0, "The email verification fail count should be reset to 0.");
 
-        when(userService.getUserByEmail(email)).thenReturn(Optional.of(user));
-
-        // ACT & ASSERT
-        assertThrows(InvalidRequestDataException.class, () -> {
-            authService.verifyEmailToken(email, token);
-        });
-
-        verify(userService).getUserByEmail(email);
-        verify(userService, org.mockito.Mockito.never())
-            .incrementEmailVerificationFailCount(user);
-    }
-
-    @Test
-    void verifyEmailToken_shouldThrowException_whenTokenIsExpired() {
-        // ARRANGE
-        String email = "expired@example.com";
-        String token = "valid_token";
-        // Set expiry to a time in the past
-        Instant pastExpiry = Instant.now().minusSeconds(300);
-
-        User user = createVerifiableUser(email, token, pastExpiry);
-
-        when(userService.getUserByEmail(email)).thenReturn(Optional.of(user));
-
-        // ACT & ASSERT
-        assertThrows(InvalidRequestDataException.class, () -> {
-            authService.verifyEmailToken(email, token);
-        });
-
-        verify(userService).getUserByEmail(email);
-        verify(userService, org.mockito.Mockito.never())
-            .incrementEmailVerificationFailCount(user);
-    }
-
-    @Test
-    void verifyEmailToken_shouldIncrementFailCountAndThrowException_whenTokenMismatches() {
-        // ARRANGE
-        String email = "mismatch@example.com";
-        String correctToken = "correct_token";
-        String wrongToken = "wrong_token";
-        Instant futureExpiry = Instant.now().plusSeconds(300);
-
-        User user = createVerifiableUser(email, correctToken, futureExpiry);
-        // Set fail count to 4 (so it doesn't fail the count check but is ready for increment)
-        user.setEmailVerificationFailCount((short) 4);
-
-        when(userService.getUserByEmail(email)).thenReturn(Optional.of(user));
-
-        // ACT & ASSERT
-        assertThrows(InvalidRequestDataException.class, () -> {
-            authService.verifyEmailToken(email, wrongToken); // ACT with the WRONG token
-        });
-
-        // VERIFY
-        verify(userService).getUserByEmail(email);
-        // Must verify that the fail count increment was called when the token mismatches
-        verify(userService).incrementEmailVerificationFailCount(user);
-    }
-
-    @Test
-    void verifyEmailToken_shouldThrowException_whenUserNotFound_case2() {
-        // ARRANGE
-        String email = "notfound@example.com";
-
-        String wrongToken = "wrong_token";
-        when(userService.getUserByEmail(email)).thenReturn(Optional.empty());
-
-        // ACT & ASSERT
-        assertThrows(InvalidRequestDataException.class, () -> {
-            authService.verifyEmailToken(email, wrongToken);
-        });
-
-        verify(userService).getUserByEmail(email);
-        verify(userService, org.mockito.Mockito.never())
-            .incrementEmailVerificationFailCount(org.mockito.Mockito.any());
-        // verifyNoInteractions(userService); // Ensure no other interactions occurred
-    }
-
-    @Test
-    void activateUser_shouldThrowException_whenUserIsAlreadyVerified() {
-        // ARRANGE
-        User verifiedUser = createVerifiedUser();
-
-        // ACT & ASSERT
-        assertThrows(InvalidRequestDataException.class, () -> {
-            authService.activateUser(verifiedUser);
-        });
-
-        // VERIFY
-        verify(userService, org.mockito.Mockito.never())
-            .changeRoleToVerifiedUser(verifiedUser);
-        verify(userService, org.mockito.Mockito.never())
-            .expireEmailVerificationToken(verifiedUser);
-        verify(userService, org.mockito.Mockito.never())
-            .resetEmailVerificationFailCount(verifiedUser);
-    }
-
-    @Test
-    void activateUser_shouldCallUserServiceMethods_whenUserIsUnverified() {
-        // ARRANGE
-        String email = "unverified@example.com";
-        User unverifiedUser = createVerifiableUser(
-            email, 
-            "valid_token", 
-            Instant.now().plusSeconds(300)
-        );
-
-        // ACT
-        authService.activateUser(unverifiedUser);
-
-        // VERIFY
-        verify(userService).changeRoleToVerifiedUser(unverifiedUser);
-        verify(userService).expireEmailVerificationToken(unverifiedUser);
-        verify(userService).resetEmailVerificationFailCount(unverifiedUser);
+        verify(userRepository, times(2)).save(user);
     }
 }

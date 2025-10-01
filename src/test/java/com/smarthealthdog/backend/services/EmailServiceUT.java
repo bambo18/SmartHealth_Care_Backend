@@ -18,12 +18,14 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.util.ReflectionTestUtils; // Utility to set @Value fields
 
+import com.smarthealthdog.backend.domain.Role;
+import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.utils.TokenGenerator;
 
 @ExtendWith(MockitoExtension.class)
-class EmailServiceTest {
+class EmailServiceUT {
 
     // InjectMocks attempts to inject the mocks into this instance
     @InjectMocks
@@ -51,10 +53,14 @@ class EmailServiceTest {
         ReflectionTestUtils.setField(emailService, "from", TEST_FROM);
         ReflectionTestUtils.setField(emailService, "emailVerificationExpiryMinutes", TEST_EXPIRY_MINUTES);
 
+        Role role = new Role();
+        role.setName(RoleEnum.UNVERIFIED_USER);
+
         // Create a user object for testing
         testUser = new User();
         testUser.setId(1L);
         testUser.setEmail(TEST_EMAIL);
+        testUser.setRole(role);
 
         // Stub the token generator to return a predictable value
         when(tokenGenerator.generateEmailVerificationCode()).thenReturn(TEST_CODE);
