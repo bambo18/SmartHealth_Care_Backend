@@ -47,7 +47,7 @@ public class User {
         nullable = false,
         columnDefinition = "SMALLINT DEFAULT 0"
     )
-    private Short loginAttempt = 0;
+    private int loginAttempt = 0;
 
     @Column(name = "login_attempt_started_at")
     private Instant loginAttemptStartedAt;
@@ -66,7 +66,7 @@ public class User {
         columnDefinition = "SMALLINT DEFAULT 0",
         nullable = false
     )
-    private Short passwordResetTokenVerifyFailCount = 0;
+    private int passwordResetTokenVerifyFailCount = 0;
 
     @Column(name = "email_verification_token", length = 8)
     private String emailVerificationToken;
@@ -82,7 +82,7 @@ public class User {
         columnDefinition = "SMALLINT DEFAULT 0", 
         nullable = false
     )
-    private Short emailVerificationFailCount = 0;
+    private int emailVerificationFailCount = 0;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
