@@ -41,7 +41,7 @@ docker-compose up -d
 ```
 
 ## 이메일 전송 서비스 설정
-프로젝트는 이메일 전송을 위해 JavaMailSender를 사용합니다. 이메일 전송을 위해 SMTP 서버 설정이 필요하며, 환경변수로 설정할 수 있습니다. SMTP 설정에 필요한 환경변수 값을 이 프로젝트 관리자에게 문의한다음 다음과 같이 설정합니다.
+프로젝트에서 사용하는 SMTP 서비스는 AWS SES(Simple Email Service)입니다. 이메일 전송을 위해 AWS SES 설정이 필요하며, 환경변수로 설정할 수 있습니다. AWS SES 설정에 필요한 환경변수 값을 이 프로젝트 관리자에게 문의한 다음, 다음과 같이 설정합니다.
 
 ### 환경변수 설정
 #### MacOS / Linux
@@ -49,6 +49,7 @@ docker-compose up -d
 export SMTP_HOST=[SMTP 서버 호스트]
 export SMTP_USER=[SMTP 사용자 이름]
 export SMTP_PASSWORD=[SMTP 비밀번호]
+export SMTP_FROM=[보내는 사람 이메일 주소]
 ```
 
 #### Windows (PowerShell)
@@ -56,6 +57,7 @@ export SMTP_PASSWORD=[SMTP 비밀번호]
 [System.Environment]::SetEnvironmentVariable('SMTP_HOST', '[SMTP 서버 호스트]', 'User')
 [System.Environment]::SetEnvironmentVariable('SMTP_USER', '[SMTP 사용자 이름]', 'User')
 [System.Environment]::SetEnvironmentVariable('SMTP_PASSWORD', '[SMTP 비밀번호]', 'User')
+[System.Environment]::SetEnvironmentVariable('SMTP_FROM', '[보내는 사람 이메일 주소]', 'User')
 ```
 
 ## 빌드 및 실행
