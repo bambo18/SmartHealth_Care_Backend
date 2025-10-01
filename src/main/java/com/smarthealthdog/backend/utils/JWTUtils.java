@@ -32,33 +32,33 @@ public class JWTUtils {
     public String generateAccessToken(String id, Date issuedAt) {
         Date expiration = Date.from(issuedAt.toInstant().plusSeconds(jwtAccessExpirationInMinutes * 60));
         return Jwts.builder()
-            .subject(id)
-            .issuedAt(issuedAt)
-            .expiration(expiration)
-            .signWith(key)
-            .compact();
+                   .subject(id)
+                   .issuedAt(issuedAt)
+                   .expiration(expiration)
+                   .signWith(key)
+                   .compact();
     }
 
     // Generate JWT Refresh Token
     public String generateRefreshToken(String id, UUID uuid, Date issuedAt) {
         Date expiration = Date.from(issuedAt.toInstant().plusSeconds(jwtRefreshExpirationInDays * 24 * 60 * 60));
         return Jwts.builder()
-            .subject(id)
-            .id(uuid.toString())
-            .issuedAt(issuedAt)
-            .expiration(expiration)
-            .signWith(key)
-            .compact();
+                   .subject(id)
+                   .id(uuid.toString())
+                   .issuedAt(issuedAt)
+                   .expiration(expiration)
+                   .signWith(key)
+                   .compact();
     }
 
     // Get user ID from JWT token
     public String getUserIdFromToken(String token) {
         return Jwts.parser()
-            .verifyWith(key)
-            .build()
-            .parseSignedClaims(token)
-            .getPayload()
-            .getSubject();
+                   .verifyWith(key)
+                   .build()
+                   .parseSignedClaims(token)
+                   .getPayload()
+                   .getSubject();
     }
 
     public Jws<Claims> getAllClaimsFromToken(String token) {

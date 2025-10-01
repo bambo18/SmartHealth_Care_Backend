@@ -1,16 +1,29 @@
 package com.smarthealthdog.backend.utils;
 
+import java.security.SecureRandom;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class TokenGenerator {
+
+    @Autowired
+    private SecureRandom secureRandom;
+
     public String generateEmailVerificationCode() {
+
         int length = 6;
         String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         StringBuilder code = new StringBuilder();
+
         for (int i = 0; i < length; i++) {
-            int index = (int) (Math.random() * characters.length());
-            code.append(characters.charAt(index));
+            try {
+                int index = secureRandom.nextInt(characters.length());
+                code.append(characters.charAt(index));
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to generate secure random number", e);
+            }
         }
         return code.toString();
     }
