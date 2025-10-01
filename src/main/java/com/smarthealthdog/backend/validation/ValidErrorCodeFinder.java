@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
 
@@ -19,12 +20,17 @@ public class ValidErrorCodeFinder {
     }
 
     public List<ErrorCode> findErrorCode(MethodArgumentNotValidException e) {
-        if (e == null || e.getBindingResult() == null || e.getBindingResult().getTarget() == null) {
+        if (e == null) {
+            return List.of(ErrorCode.INVALID_INPUT);
+        }
+
+        BindingResult bindingResult = e.getBindingResult();
+        if (bindingResult == null || bindingResult.getTarget() == null) {
             return List.of(ErrorCode.INVALID_INPUT);
         }
 
         // 에러가 발생한 객체의 클래스 이름을 가져옴
-        String target = e.getBindingResult().getTarget().getClass().getSimpleName();
+        String target = bindingResult.getTarget().getClass().getSimpleName();
 
         switch (target) {
             case "UserCreateRequest":
