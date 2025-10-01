@@ -1,15 +1,22 @@
 package com.smarthealthdog.backend.utils;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+@SpringBootTest
+@ActiveProfiles("test")
 class TokenGeneratorTest {
 
-    private final TokenGenerator tokenGenerator = new TokenGenerator();
+    @Autowired
+    private TokenGenerator tokenGenerator;
 
     // The set of allowed characters as defined in the method
     private static final String ALLOWED_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
