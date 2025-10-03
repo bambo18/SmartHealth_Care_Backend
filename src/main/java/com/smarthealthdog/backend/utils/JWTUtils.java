@@ -28,8 +28,22 @@ public class JWTUtils {
         this.key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    // Generate JWT Access Token
-    public String generateAccessToken(String id, Date issuedAt) {
+    /**
+     * JWT Access Token 생성
+     * @param id
+     * @param issuedAt
+     * @return 생성된 JWT 엑세스 토큰
+     * @throws IllegalArgumentException id가 null이거나 비어있을 경우 발생
+     */
+    public String generateAccessToken(String id, Date issuedAt) throws IllegalArgumentException {
+        if (id == null || id.isEmpty()) {
+            throw new IllegalArgumentException("ID 값은 null이거나 비어있을 수 없습니다");
+        }
+
+        if (issuedAt == null) {
+            issuedAt = new Date();
+        }
+
         Date expiration = Date.from(issuedAt.toInstant().plusSeconds(jwtAccessExpirationInMinutes * 60));
         return Jwts.builder()
                    .subject(id)
@@ -39,8 +53,27 @@ public class JWTUtils {
                    .compact();
     }
 
-    // Generate JWT Refresh Token
-    public String generateRefreshToken(String id, UUID uuid, Date issuedAt) {
+    /**
+     * JWT Refresh Token 생성
+     * @param id 사용자 ID
+     * @param uuid 고유 식별자
+     * @param issuedAt 발급 시간
+     * @return 생성된 JWT 리프레시 토큰
+     * @throws IllegalArgumentException id가 null이거나 비어있거나, uuid가 null인 경우 발생
+     */
+    public String generateRefreshToken(String id, UUID uuid, Date issuedAt) throws IllegalArgumentException {
+        if (id == null || id.isEmpty()) {
+            throw new IllegalArgumentException("ID 값은 null이거나 비어있을 수 없습니다");
+        }
+
+        if (uuid == null) {
+            throw new IllegalArgumentException("UUID 값은 null일 수 없습니다");
+        }
+
+        if (issuedAt == null) {
+            issuedAt = new Date();
+        }
+
         Date expiration = Date.from(issuedAt.toInstant().plusSeconds(jwtRefreshExpirationInDays * 24 * 60 * 60));
         return Jwts.builder()
                    .subject(id)
@@ -51,8 +84,19 @@ public class JWTUtils {
                    .compact();
     }
 
-    // Get user ID from JWT token
-    public String getUserIdFromToken(String token) {
+    /**
+     * 토큰에서 subject(유저 ID) 추출
+     * @param token
+     * @return 유저 ID
+     * @throws JwtException 토큰이 파싱되지 않거나 유효하지 않을 경우 발생
+     * @throws IllegalArgumentException token이 null이거나 비어있을 경우 발생
+     * @throws UnsupportedJwtException 지원하지 않는 토큰일 경우 발생
+     */
+    public String getUserIdFromToken(String token) throws JwtException, IllegalArgumentException, UnsupportedJwtException {
+        if (token == null || token.isEmpty()) {
+            throw new IllegalArgumentException("토큰은 null이거나 비어있을 수 없습니다");
+        }
+
         return Jwts.parser()
                    .verifyWith(key)
                    .build()
@@ -61,17 +105,34 @@ public class JWTUtils {
                    .getSubject();
     }
 
-    public Jws<Claims> getAllClaimsFromToken(String token) {
+    /**
+     * 토큰에서 모든 클레임 추출
+     * @param token
+     * @return 모든 클레임
+     * @throws JwtException 토큰이 파싱되지 않거나 유효하지 않을 경우 발생
+     * @throws IllegalArgumentException token이 null이거나 비어있을 경우 발생
+     * @throws UnsupportedJwtException 지원하지 않는 토큰일 경우 발생
+     */
+    public Jws<Claims> getAllClaimsFromToken(String token) throws JwtException, IllegalArgumentException, UnsupportedJwtException {
+        if (token == null || token.isEmpty()) {
+            throw new IllegalArgumentException("토큰은 null이거나 비어있을 수 없습니다");
+        }
+
         return Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
     }
 
-    // Validate JWT token
-    public boolean validateJwtToken(String token) {
-        try {
-            Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
-            return true; 
-        } catch (JwtException | IllegalArgumentException e) {
-            return false;
+    /**
+     * 토큰 유효성 검사
+     * @param token 검사할 토큰
+     * @throws JwtException 토큰이 파싱되지 않거나 유효하지 않을 경우 발생
+     * @throws UnsupportedJwtException 지원하지 않는 토큰일 경우 발생
+     * @throws IllegalArgumentException token이 null이거나 비어있을 경우 발생
+     */
+    public void validateJwtToken(String token) throws JwtException, UnsupportedJwtException, IllegalArgumentException {
+        if (token == null || token.isEmpty()) {
+            throw new IllegalArgumentException("토큰은 null이거나 비어있을 수 없습니다");
         }
+
+        Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
     }
 }
