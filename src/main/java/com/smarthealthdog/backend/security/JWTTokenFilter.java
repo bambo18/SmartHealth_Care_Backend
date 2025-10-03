@@ -12,15 +12,17 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.smarthealthdog.backend.exceptions.BadCredentialsException;
 import com.smarthealthdog.backend.services.CustomUserDetailsService;
-import com.smarthealthdog.backend.utils.JWTUtils;
+import com.smarthealthdog.backend.services.RefreshTokenService;
+import com.smarthealthdog.backend.validation.ErrorCode;
 
 import java.io.IOException;
 
 @Component
 public class JWTTokenFilter extends OncePerRequestFilter {
     @Autowired
-    private JWTUtils jwtUtils;
+    private RefreshTokenService refreshTokenService;
     @Autowired
     private CustomUserDetailsService userDetailsService;
 
@@ -32,8 +34,9 @@ public class JWTTokenFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         try {
             String jwt = parseJwt(request);
-            if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
-                String userId = jwtUtils.getUserIdFromToken(jwt);
+            if (jwt != null) {
+                refreshTokenService.validateAccessToken(jwt); // Validate the token and throw exception if invalid
+                String userId = refreshTokenService.getClaimsFromToken(jwt).getPayload().getSubject();
                 UserDetails userDetails = userDetailsService.loadUserByUsername(userId);
 
                 UsernamePasswordAuthenticationToken authentication =
@@ -46,8 +49,9 @@ public class JWTTokenFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception e) {
-            System.out.println("Cannot set user authentication: " + e);
+            throw new BadCredentialsException(ErrorCode.LOGIN_FAILURE);
         }
+
         filterChain.doFilter(request, response);
     }
 
