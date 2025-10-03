@@ -17,8 +17,10 @@ public class Permission {
     @Column(name = "id", nullable = false)
     private Integer id;
 
+    @Enumerated(EnumType.STRING)
+    @Convert(converter = PermissionConverter.class)
     @Column(name = "name", nullable = false, length = 255, unique = true)
-    private String name;
+    private PermissionEnum name;
 
     @Column(name = "description", length = 1024)
     private String description;
