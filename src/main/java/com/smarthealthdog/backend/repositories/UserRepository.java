@@ -2,6 +2,7 @@ package com.smarthealthdog.backend.repositories;
 
 import com.smarthealthdog.backend.domain.User;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -26,4 +27,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Modifying
     @Query("UPDATE User u SET u.emailVerificationFailCount = 0 WHERE u.id = :userId")
     int resetEmailVerificationFailCount(@Param("userId") Long userId);
+
+    @EntityGraph(attributePaths = {"role", "role.permissions"})
+    Optional<User> findUserWithRoleAndPermissionsById(Long id);
 }
