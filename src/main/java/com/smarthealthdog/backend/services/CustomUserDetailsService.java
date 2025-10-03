@@ -1,11 +1,18 @@
 package com.smarthealthdog.backend.services;
 
 import com.smarthealthdog.backend.domain.User;
+import com.smarthealthdog.backend.exceptions.BadCredentialsException;
 import com.smarthealthdog.backend.repositories.UserRepository;
+import com.smarthealthdog.backend.validation.ErrorCode;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
-import java.util.Collections;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -13,37 +20,42 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Autowired
     private UserRepository userRepository;
 
-    // FIX THIS: Add logic to add permissions associated with a role to the UserDetails
-    // For now, we just return an empty list of authorities.
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        // Check if "username" is actually a user ID
+        Optional<User> userOptional;
+        List<GrantedAuthority> authorities = new ArrayList<>();
+
+        // If the username consists only of digits, treat it as a user ID
         if (username.matches("\\d+")) {
             Long userId = Long.parseLong(username);
-            Optional<User> userOptionalById = userRepository.findById(userId);
-            if (userOptionalById.isPresent()) {
-                User user = userOptionalById.get();
-                return new org.springframework.security.core.userdetails.User(
-                    user.getId().toString(),
-                    user.getPassword(),
-                    Collections.emptyList()
-                );
-            }
-
-            throw new UsernameNotFoundException("Could not find user with ID: " + username);
+            userOptional = userRepository.findUserWithRoleAndPermissionsById(userId);
+        } else {
+            userOptional = userRepository.findByEmail(username);
         }
         
-        // Otherwise, treat "username" as an email
-        Optional<User> userOptional = userRepository.findByEmail(username);
         if (!userOptional.isPresent()) {
-            throw new UsernameNotFoundException("Could not find user with email: " + username);
+            throw new BadCredentialsException(ErrorCode.LOGIN_FAILURE);
         }
 
         User user = userOptional.get();
+        
+        // 이미 로그인된 유저라면, 권한 정보를 UserDetails에 추가 
+        if (username.matches("\\d+")) {
+            if (user.getRole() == null) {
+                throw new BadCredentialsException(ErrorCode.LOGIN_FAILURE);
+            }
+
+            if (user.getRole().getPermissions() != null && !user.getRole().getPermissions().isEmpty()) {
+                user.getRole().getPermissions().forEach(permission -> {
+                    authorities.add(new SimpleGrantedAuthority(permission.getName().getName()));
+                });
+            }
+        }
+
         return new org.springframework.security.core.userdetails.User(
             user.getId().toString(),
             user.getPassword(),
-            Collections.emptyList()
+            authorities
         );
     }
 }
