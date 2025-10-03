@@ -177,6 +177,7 @@ public class AuthServiceTest {
         user.setEmailVerificationFailCount(0);
         user.setEmailVerificationExpiry(java.time.Instant.now().plusSeconds(3600)); // Valid for 1 more hour
         user.setEmailVerificationToken("actualTokenValue"); // Actual token value
+
         when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
         when(userRepository.incrementEmailVerificationFailCount(user.getId())).thenAnswer(invocation -> {
             user.setEmailVerificationFailCount(user.getEmailVerificationFailCount() + 1);
