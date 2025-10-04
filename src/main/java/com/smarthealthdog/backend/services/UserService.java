@@ -40,6 +40,16 @@ public class UserService {
         this.nicknameValidator = nicknameValidator;
     }
 
+    public boolean checkUserPassword(User user, String rawPassword) {
+        return passwordEncoder.matches(rawPassword, user.getPassword());
+    }
+
+    public void changeRoleToVerifiedUser(User user) {
+        Role userRole = roleService.getUserRole();
+        user.setRole(userRole);
+        userRepository.save(user);
+    }
+
     public User createUser(String nickname, String email, String password) {
         boolean isValidNickname = nicknameValidator.isValid(nickname);
         if (!isValidNickname) {
@@ -75,6 +85,12 @@ public class UserService {
         userRepository.deleteById(id);
     }
 
+    public void expireEmailVerificationToken(User user) {
+        Instant now = Instant.now();
+        user.setEmailVerificationExpiry(now);
+        userRepository.save(user);
+    }
+
     public Optional<User> getUserById(Long id) {
         // Logic to retrieve a user by ID
         return userRepository.findById(id);
@@ -90,6 +106,20 @@ public class UserService {
         return userRepository.findByNickname(nickname);
     }
 
+    @Transactional
+    public void incrementEmailVerificationFailCount(User user) {
+        userRepository.incrementEmailVerificationFailCount(user.getId());
+    }
+
+    public void resetEmailVerificationFailCount(User user) {
+        userRepository.resetEmailVerificationFailCount(user.getId());
+    }
+
+    public void setUserPassword(User user, String rawPassword) {
+        String hashedPassword = passwordEncoder.encode(rawPassword);
+        user.setPassword(hashedPassword);
+    }
+
     public boolean userExistsByEmail(String email) {
         // Logic to check if a user exists by email
         return userRepository.existsByEmail(email);
@@ -103,35 +133,5 @@ public class UserService {
     public boolean userExistsById(Long id) {
         // Logic to check if a user exists by ID
         return userRepository.existsById(id);
-    }
-
-    public void setUserPassword(User user, String rawPassword) {
-        String hashedPassword = passwordEncoder.encode(rawPassword);
-        user.setPassword(hashedPassword);
-    }
-
-    public boolean checkUserPassword(User user, String rawPassword) {
-        return passwordEncoder.matches(rawPassword, user.getPassword());
-    }
-
-    public void changeRoleToVerifiedUser(User user) {
-        Role userRole = roleService.getUserRole();
-        user.setRole(userRole);
-        userRepository.save(user);
-    }
-
-    public void expireEmailVerificationToken(User user) {
-        Instant now = Instant.now();
-        user.setEmailVerificationExpiry(now);
-        userRepository.save(user);
-    }
-
-    public void resetEmailVerificationFailCount(User user) {
-        userRepository.resetEmailVerificationFailCount(user.getId());
-    }
-
-    @Transactional
-    public void incrementEmailVerificationFailCount(User user) {
-        userRepository.incrementEmailVerificationFailCount(user.getId());
     }
 }

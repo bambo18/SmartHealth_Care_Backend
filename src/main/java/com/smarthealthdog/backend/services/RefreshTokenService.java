@@ -37,6 +37,16 @@ public class RefreshTokenService {
     }
 
     /**
+     * 유저의 모든 리프레시 토큰 삭제
+     * @param user
+     */
+    @Transactional
+    public void deleteUserRefreshTokens(User user) {
+        refreshTokenRepository.deleteByUser(user);
+    }
+
+
+    /**
      * 엑세스 토큰 생성
      * @param refreshToken
      * @return 생성된 엑세스 토큰
@@ -50,15 +60,6 @@ public class RefreshTokenService {
 
         Date now = new Date();
         return jwtUtils.generateAccessToken(userId, now);
-    }
-
-    /**
-     * 유저의 모든 리프레시 토큰 삭제
-     * @param user
-     */
-    @Transactional
-    public void deleteUserRefreshTokens(User user) {
-        refreshTokenRepository.deleteByUser(user);
     }
 
     /**
@@ -85,6 +86,61 @@ public class RefreshTokenService {
             refreshToken.getId(), 
             issuedAt
         );
+    }
+
+    /**
+     * 토큰에서 클레임 추출
+     * @param token
+     * @return 토큰의 클레임
+     * @throws BadCredentialsException 토큰이 유효하지 않을 경우 발생
+     */
+    public Jws<Claims> getClaimsFromToken(String token) {
+        try {
+            jwtUtils.validateJwtToken(token);
+            return jwtUtils.getAllClaimsFromToken(token);
+        } catch (Exception e) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+    }
+
+    /**
+     * 리프레시 토큰 폐기
+     * @param token
+     * @throws BadCredentialsException 토큰이 유효하지 않을 경우 발생
+     */
+    public void revokeRefreshToken(String token) {
+        if (token == null || token.isEmpty()) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        // 토큰에서 클레임 추출
+        Jws<Claims> claims;
+        try {
+            claims = jwtUtils.getAllClaimsFromToken(token);
+        } catch (Exception e) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        if (claims == null) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        // 토큰에서 토큰 ID(jti) 추출
+        String tokenId = claims.getPayload().getId();
+        if (tokenId == null || tokenId.isEmpty()) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        // 토큰 ID가 UUID 형식인지 확인
+        UUID uuid;
+        try {
+            uuid = UUID.fromString(tokenId);
+        } catch (IllegalArgumentException e) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        // 토큰 ID가 데이터베이스에서 삭제
+        refreshTokenRepository.deleteById(uuid);
     }
 
     /**
@@ -189,60 +245,5 @@ public class RefreshTokenService {
         if (expiration == null || expiration.before(new Date())) {
             throw new BadCredentialsException(ErrorCode.INVALID_JWT);
         }
-    }
-
-    /**
-     * 토큰에서 클레임 추출
-     * @param token
-     * @return 토큰의 클레임
-     * @throws BadCredentialsException 토큰이 유효하지 않을 경우 발생
-     */
-    public Jws<Claims> getClaimsFromToken(String token) {
-        try {
-            jwtUtils.validateJwtToken(token);
-            return jwtUtils.getAllClaimsFromToken(token);
-        } catch (Exception e) {
-            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
-        }
-    }
-
-    /**
-     * 리프레시 토큰 폐기
-     * @param token
-     * @throws BadCredentialsException 토큰이 유효하지 않을 경우 발생
-     */
-    public void revokeRefreshToken(String token) {
-        if (token == null || token.isEmpty()) {
-            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
-        }
-
-        // 토큰에서 클레임 추출
-        Jws<Claims> claims;
-        try {
-            claims = jwtUtils.getAllClaimsFromToken(token);
-        } catch (Exception e) {
-            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
-        }
-
-        if (claims == null) {
-            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
-        }
-
-        // 토큰에서 토큰 ID(jti) 추출
-        String tokenId = claims.getPayload().getId();
-        if (tokenId == null || tokenId.isEmpty()) {
-            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
-        }
-
-        // 토큰 ID가 UUID 형식인지 확인
-        UUID uuid;
-        try {
-            uuid = UUID.fromString(tokenId);
-        } catch (IllegalArgumentException e) {
-            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
-        }
-
-        // 토큰 ID가 데이터베이스에서 삭제
-        refreshTokenRepository.deleteById(uuid);
     }
 }
