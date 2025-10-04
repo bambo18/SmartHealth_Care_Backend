@@ -29,6 +29,10 @@ public class AuthService {
         this.userService = userService;
     }
 
+    /**
+     * 유저 활성화(이메일 인증)
+     * @param user
+     */
     @Transactional
     public void activateUser(User user) {
         // 역할이 UNVERIFIED_USER이 아닌 경우(이미 인증된 경우) 예외 발생
@@ -41,18 +45,33 @@ public class AuthService {
         userService.resetEmailVerificationFailCount(user);
     }
 
-    // Generate both access and refresh tokens
+    /**
+     * 로그인 시 액세스 토큰과 리프레시 토큰 생성
+     * @param userId
+     * @return
+     */
     @Transactional
     public LoginResponse generateTokens(Long userId) {
         User user = userService.getUserById(userId)
             .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND));
 
+        // 만료된 리프레시 토큰 삭제
+        refreshTokenService.deleteUserRefreshTokensIfExpired(user);
+
         String refreshToken = refreshTokenService.generateRefreshToken(user);
         String accessToken = refreshTokenService.generateAccessToken(refreshToken);
+
+        // 유저의 리프레시 토큰 개수가 최대 개수를 초과하는지 확인하고, 초과하는 경우 오래된 토큰부터 삭제
+        refreshTokenService.enforceMaxRefreshTokenCount(user);
 
         return new LoginResponse(accessToken, refreshToken);
     }
 
+    /**
+     * 유저 회원가입
+     * @param request
+     * @return 생성된 유저 객체
+     */
     public User registerUser(UserCreateRequest request) {
         return userService.createUser(
             request.nickname(),
@@ -61,7 +80,18 @@ public class AuthService {
         );
     }
 
+    /**
+     * 이메일 인증 토큰 검증
+     * @param email
+     * @param token
+     * @return 검증된 유저 객체
+     * @throws InvalidRequestDataException 토큰이 유효하지 않을 경우 발생
+     */
     public User verifyEmailToken(String email, String token) {
+        if (email == null || token == null) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
+        }
+
         Optional<User> userOpt = userService.getUserByEmail(email);
         // 이메일로 사용자를 찾을 수 없는 경우 예외 발생
         if (userOpt.isEmpty()) {
