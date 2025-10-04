@@ -7,12 +7,11 @@ import java.util.Date;
 
 import javax.crypto.SecretKey;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import io.jsonwebtoken.JwtException;
@@ -20,15 +19,15 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
 
-@TestInstance(Lifecycle.PER_CLASS)
 @SpringBootTest
+@ActiveProfiles("test")
 public class JWTUtilsTest {
     @Autowired
     private JWTUtils jwtUtils;
 
     private SecretKey key;
 
-    @BeforeAll
+    @BeforeEach
     void setup() {
         key = Jwts.SIG.HS256.key().build();
         ReflectionTestUtils.setField(
