@@ -16,6 +16,7 @@ import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -345,8 +346,10 @@ class AuthServiceUT {
         // ARRANGE
         User mockUser = mock(User.class);
         when(userService.getUserById(mockUser.getId())).thenReturn(Optional.of(mockUser));
+        doNothing().when(refreshTokenService).deleteUserRefreshTokensIfExpired(mockUser);
         when(refreshTokenService.generateRefreshToken(mockUser)).thenReturn("mockRefreshToken");
         when(refreshTokenService.generateAccessToken("mockRefreshToken")).thenReturn("mockAccessToken");
+        doNothing().when(refreshTokenService).enforceMaxRefreshTokenCount(mockUser);
 
         // ACT
         LoginResponse response = authService.generateTokens(mockUser.getId());
