@@ -98,7 +98,6 @@ class RoleServiceUT {
         assertEquals(RoleEnum.USER, result.getName(), 
                      "The returned role should be USER.");
         
-        // VERIFY: Ensure the repository method was called exactly once
         verify(roleRepository).findByName(RoleEnum.USER);
     }
 

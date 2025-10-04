@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -32,7 +33,8 @@ public class GlobalExceptionHandler {
         value = {
             MalformedJwtException.class,
             ExpiredJwtException.class,
-            UnsupportedJwtException.class
+            UnsupportedJwtException.class,
+            BadCredentialsException.class
         }
     )
     @ResponseStatus(HttpStatus.UNAUTHORIZED)

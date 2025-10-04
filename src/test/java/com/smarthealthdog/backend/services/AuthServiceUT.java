@@ -9,11 +9,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
+import com.smarthealthdog.backend.dto.LoginResponse;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
+import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,6 +29,9 @@ class AuthServiceUT {
 
     @Mock
     private UserService userService;
+
+    @Mock
+    private RefreshTokenService refreshTokenService;
 
     @InjectMocks
     private AuthService authService;
@@ -317,5 +324,38 @@ class AuthServiceUT {
         verify(userService).changeRoleToVerifiedUser(unverifiedUser);
         verify(userService).expireEmailVerificationToken(unverifiedUser);
         verify(userService).resetEmailVerificationFailCount(unverifiedUser);
+    }
+
+    @Test
+    void generateTokens_shouldThrowException_whenUserNotFound() {
+        // ARRANGE
+        Long userId = 999L; // Non-existent user ID
+
+        when(userService.getUserById(userId)).thenReturn(Optional.empty());
+
+        // ACT & ASSERT
+        assertThrows(ResourceNotFoundException.class, () -> {
+            authService.generateTokens(userId);
+        });
+
+        verify(userService).getUserById(userId);
+    }
+
+    @Test
+    void generateTokens_shouldReturnLoginResponse_whenUserExists() {
+        // ARRANGE
+        User mockUser = mock(User.class);
+        when(userService.getUserById(mockUser.getId())).thenReturn(Optional.of(mockUser));
+        doNothing().when(refreshTokenService).deleteUserRefreshTokensIfExpired(mockUser);
+        when(refreshTokenService.generateRefreshToken(mockUser)).thenReturn("mockRefreshToken");
+        when(refreshTokenService.generateAccessToken("mockRefreshToken")).thenReturn("mockAccessToken");
+        doNothing().when(refreshTokenService).enforceMaxRefreshTokenCount(mockUser);
+
+        // ACT
+        LoginResponse response = authService.generateTokens(mockUser.getId());
+
+        // ASSERT
+        assertEquals("mockAccessToken", response.accessToken());
+        assertEquals("mockRefreshToken", response.refreshToken());
     }
 }

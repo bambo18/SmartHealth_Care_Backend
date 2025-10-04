@@ -49,7 +49,6 @@ class EmailServiceUT {
 
     @BeforeEach
     void setUp() {
-        // Use ReflectionTestUtils to set the @Value annotated fields
         ReflectionTestUtils.setField(emailService, "from", TEST_FROM);
         ReflectionTestUtils.setField(emailService, "emailVerificationExpiryMinutes", TEST_EXPIRY_MINUTES);
 
@@ -62,7 +61,6 @@ class EmailServiceUT {
         testUser.setEmail(TEST_EMAIL);
         testUser.setRole(role);
 
-        // Stub the token generator to return a predictable value
         when(tokenGenerator.generateEmailVerificationCode()).thenReturn(TEST_CODE);
     }
 

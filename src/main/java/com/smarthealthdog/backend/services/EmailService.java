@@ -32,6 +32,10 @@ public class EmailService {
     @Value("${app.token.email-verification.expiration.minutes}")
     private int emailVerificationExpiryMinutes;
 
+    /**
+     * 이메일 인증 메일 발송
+     * @param user
+     */
     @Async
     public void sendEmailVerification(User user) {
         if (user == null || user.getEmail() == null) {

@@ -5,16 +5,21 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Optional;
 
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.TestPropertySource;
 
+import com.smarthealthdog.backend.domain.Permission;
+import com.smarthealthdog.backend.domain.PermissionEnum;
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
 
+@TestInstance(Lifecycle.PER_CLASS)
 @DataJpaTest
 @TestPropertySource(locations = "classpath:application-test.properties")
 class UserRepositoryTest {
@@ -24,10 +29,13 @@ class UserRepositoryTest {
     @Autowired
     private RoleRepository roleRepository;
 
+    @Autowired
+    private PermissionRepository permissionRepository;
+
     private Role testRole;
 
     // 테스트 실행 전에 필요한 데이터 설정
-    @BeforeEach
+    @BeforeAll
     void setUp() {
         // 1. Create a new Role instance
         Role role = new Role(); // Use your Role constructor/setter
@@ -39,6 +47,16 @@ class UserRepositoryTest {
         
         // Ensure the data is immediately available in the context (optional, but good for safety)
         roleRepository.flush(); 
+
+        // 3. Create permissions and associate them with the role if needed
+        Permission perm1 = new Permission();
+        perm1.setName(PermissionEnum.CAN_LOGIN);
+        perm1.setDescription("Permission to log in");
+        permissionRepository.save(perm1);
+
+        role.setPermissions(new java.util.HashSet<>());
+        role.getPermissions().add(perm1);
+        roleRepository.save(role);
     }
 
     @Test
@@ -143,12 +161,53 @@ class UserRepositoryTest {
         user.setRole(this.testRole); // Use the persisted role
         User savedUser = userRepository.save(user);
 
-        assertEquals((short) 0, savedUser.getEmailVerificationFailCount());
+        assertEquals( 0, savedUser.getEmailVerificationFailCount());
 
         // Act
         int newCount = userRepository.incrementEmailVerificationFailCount(savedUser.getId());
 
         // Assert
-        assertEquals(1, (short)newCount);
+        assertEquals(1, newCount);
+    }
+
+    @Test
+    void resetEmailVerificationFailCount_ShouldResetCount() {
+        // Arrange: Insert test data using the repository itself
+        User user = new User();
+        user.setNickname("testuser");
+        user.setEmail("test@example.com");
+        user.setPassword("hashedpassword");
+        user.setRole(this.testRole); // Use the persisted role
+
+        User savedUser = userRepository.save(user);
+
+        // Act
+        userRepository.resetEmailVerificationFailCount(savedUser.getId());
+
+        // Assert
+        assertEquals(0, savedUser.getEmailVerificationFailCount());
+    }
+
+    @Test
+    void findUserWithRoleAndPermissionsById_ShouldReturnUserWithRoleAndPermissions() {
+        // Arrange: Insert test data using the repository itself
+        User user = new User();
+        user.setNickname("testuser");
+        user.setEmail("test@example.com");
+        user.setPassword("hashedpassword");
+        user.setRole(this.testRole); // Use the persisted role
+
+        User savedUser = userRepository.save(user);
+
+        // Act
+        Optional<User> foundUser = userRepository.findUserWithRoleAndPermissionsById(savedUser.getId());
+
+        // Assert
+        assertTrue(foundUser.isPresent());
+        assertEquals(savedUser.getId(), foundUser.get().getId());
+        assertEquals(savedUser.getRole(), foundUser.get().getRole());
+        assertTrue(foundUser.get().getRole().getPermissions().containsAll(this.testRole.getPermissions()));        
+        assertTrue(foundUser.get().getRole().getPermissions().size() > 0);
+        assertEquals(foundUser.get().getRole().getPermissions().iterator().next().getName(), PermissionEnum.CAN_LOGIN);
     }
 }

@@ -1,50 +1,77 @@
 package com.smarthealthdog.backend.services;
 
 import java.time.Instant;
-import java.util.Date;
 import java.util.Optional;
-import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.smarthealthdog.backend.domain.RefreshToken;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.LoginResponse;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
-import com.smarthealthdog.backend.exceptions.BadCredentialsException;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
-import com.smarthealthdog.backend.repositories.RefreshTokenRepository;
-import com.smarthealthdog.backend.utils.JWTUtils;
 import com.smarthealthdog.backend.validation.ErrorCode;
-
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 
 @Service
 public class AuthService {
-    private final RefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenService refreshTokenService;
     private final UserService userService;
-    private final JWTUtils jwtUtils;
-
-    @Value("${jwt.refresh-token.expiration.days}")
-    private Long refreshTokenExpirationInDays;
 
     @Autowired
     public AuthService(
-        RefreshTokenRepository refreshTokenRepository, 
-        UserService userService,
-        JWTUtils jwtUtils
+        RefreshTokenService refreshTokenService,
+        UserService userService
     ) {
-        this.refreshTokenRepository = refreshTokenRepository;
+        this.refreshTokenService = refreshTokenService;
         this.userService = userService;
-        this.jwtUtils = jwtUtils;
     }
 
+    /**
+     * 유저 활성화(이메일 인증)
+     * @param user
+     */
+    @Transactional
+    public void activateUser(User user) {
+        // 역할이 UNVERIFIED_USER이 아닌 경우(이미 인증된 경우) 예외 발생
+        if (!user.getRole().getName().equals(RoleEnum.UNVERIFIED_USER)) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
+        }
+
+        userService.changeRoleToVerifiedUser(user);
+        userService.expireEmailVerificationToken(user);
+        userService.resetEmailVerificationFailCount(user);
+    }
+
+    /**
+     * 로그인 시 액세스 토큰과 리프레시 토큰 생성
+     * @param userId
+     * @return
+     */
+    @Transactional
+    public LoginResponse generateTokens(Long userId) {
+        User user = userService.getUserById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        // 만료된 리프레시 토큰 삭제
+        refreshTokenService.deleteUserRefreshTokensIfExpired(user);
+
+        String refreshToken = refreshTokenService.generateRefreshToken(user);
+        String accessToken = refreshTokenService.generateAccessToken(refreshToken);
+
+        // 유저의 리프레시 토큰 개수가 최대 개수를 초과하는지 확인하고, 초과하는 경우 오래된 토큰부터 삭제
+        refreshTokenService.enforceMaxRefreshTokenCount(user);
+
+        return new LoginResponse(accessToken, refreshToken);
+    }
+
+    /**
+     * 유저 회원가입
+     * @param request
+     * @return 생성된 유저 객체
+     */
     public User registerUser(UserCreateRequest request) {
         return userService.createUser(
             request.nickname(),
@@ -53,7 +80,18 @@ public class AuthService {
         );
     }
 
+    /**
+     * 이메일 인증 토큰 검증
+     * @param email
+     * @param token
+     * @return 검증된 유저 객체
+     * @throws InvalidRequestDataException 토큰이 유효하지 않을 경우 발생
+     */
     public User verifyEmailToken(String email, String token) {
+        if (email == null || token == null) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
+        }
+
         Optional<User> userOpt = userService.getUserByEmail(email);
         // 이메일로 사용자를 찾을 수 없는 경우 예외 발생
         if (userOpt.isEmpty()) {
@@ -61,7 +99,6 @@ public class AuthService {
         }
 
         User user = userOpt.get();
-
         if (user.getEmailVerificationFailCount() >= 5) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
         }
@@ -84,147 +121,5 @@ public class AuthService {
         }
 
         return user;
-    }
-
-    @Transactional
-    public void activateUser(User user) {
-        // 역할이 UNVERIFIED_USER이 아닌 경우(이미 인증된 경우) 예외 발생
-        if (!user.getRole().getName().equals(RoleEnum.UNVERIFIED_USER)) {
-            throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
-        }
-
-        userService.changeRoleToVerifiedUser(user);
-        userService.expireEmailVerificationToken(user);
-        userService.resetEmailVerificationFailCount(user);
-    }
-
-    public String generateAccessToken(String refreshToken) {
-        if (validateRefreshToken(refreshToken) == false) {
-            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
-        }
-
-        Jws<Claims> claims = jwtUtils.getAllClaimsFromToken(refreshToken);
-        if (claims == null) {
-            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
-        }
-
-        Date expiration = claims.getPayload().getExpiration();
-        if (expiration == null || expiration.before(new Date())) {
-            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
-        }
-
-        String userId = claims.getPayload().getSubject();
-
-        Date now = new Date();
-        return jwtUtils.generateAccessToken(userId, now);
-    }
-
-    // Generate both access and refresh tokens
-    public LoginResponse generateTokens(Long userId) {
-        String refreshToken = generateRefreshToken(userId);
-        String accessToken = generateAccessToken(refreshToken);
-
-        return new LoginResponse(accessToken, refreshToken);
-    }
-
-    // Add methods to manage refresh tokens as needed
-    public String generateRefreshToken(Long userId) {
-        Optional<User> userOpt = userService.getUserById(userId);
-        if (userOpt.isEmpty()) {
-            throw new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND);
-        }
-
-        User user = userOpt.get();
-
-        Date issuedAt = new Date();
-        Instant expiresAt = Instant.now().plusSeconds(refreshTokenExpirationInDays * 24 * 60 * 60);
-
-        RefreshToken refreshToken = new RefreshToken();
-        refreshToken.setUser(user);
-        refreshToken.setId(UUID.randomUUID());
-        refreshToken.setExpiresAt(expiresAt);
-
-        refreshTokenRepository.save(refreshToken);
-        return jwtUtils.generateRefreshToken(
-            user.getId().toString(), 
-            refreshToken.getId(), 
-            issuedAt
-        );
-    }
-
-    public boolean validateAccessToken(String token) {
-        // Implementation for validating an access token
-        Jws<Claims> claims = jwtUtils.getAllClaimsFromToken(token);
-        if (claims == null) {
-            return false;
-        }
-
-        // Check if the token is expired
-        Date expiration = claims.getPayload().getExpiration();
-        if (expiration == null || expiration.before(new Date())) {
-            return false;
-        }
-
-        return true;
-    }
-
-    public boolean validateRefreshToken(String token) {
-        // Implementation for validating a refresh token
-        Jws<Claims> claims = jwtUtils.getAllClaimsFromToken(token);
-        if (claims == null) {
-            return false;
-        }
-
-        // Extract the token ID (jti) from the claims
-        String tokenId = claims.getPayload().getId();
-        if (tokenId == null || tokenId.isEmpty()) {
-            return false;
-        }
-
-        UUID tokenUuid;
-        try {
-            tokenUuid = UUID.fromString(tokenId);
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
-
-        // Check if the token exists in the database
-        boolean storedToken = refreshTokenRepository.existsById(tokenUuid);
-        if (storedToken == false) {
-            return false;
-        }
-
-        // Check if the token is expired
-        Date expiration = claims.getPayload().getExpiration();
-        if (expiration == null || expiration.before(new Date())) {
-            return false;
-        }
-
-        return true;
-    }
-
-    public Jws<Claims> getClaimsFromToken(String token) {
-        return jwtUtils.getAllClaimsFromToken(token);
-    }
-
-    public void revokeRefreshToken(String token) {
-        Jws<Claims> claims = jwtUtils.getAllClaimsFromToken(token);
-        if (claims == null) {
-            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
-        }
-
-        String tokenId = claims.getPayload().getId();
-        if (tokenId == null || tokenId.isEmpty()) {
-            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
-        }
-
-        UUID uuid;
-        try {
-            uuid = UUID.fromString(tokenId);
-        } catch (IllegalArgumentException e) {
-            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
-        }
-
-        refreshTokenRepository.deleteById(uuid);
     }
 }
