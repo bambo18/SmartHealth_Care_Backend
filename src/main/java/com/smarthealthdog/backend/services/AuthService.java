@@ -99,7 +99,6 @@ public class AuthService {
         }
 
         User user = userOpt.get();
-
         if (user.getEmailVerificationFailCount() >= 5) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
         }
@@ -123,5 +122,4 @@ public class AuthService {
 
         return user;
     }
-
 }
