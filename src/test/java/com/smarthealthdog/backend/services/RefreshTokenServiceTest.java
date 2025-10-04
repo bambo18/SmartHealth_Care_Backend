@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import javax.crypto.SecretKey;
@@ -12,7 +13,6 @@ import javax.crypto.SecretKey;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
@@ -21,14 +21,18 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.smarthealthdog.backend.domain.Permission;
+import com.smarthealthdog.backend.domain.PermissionEnum;
 import com.smarthealthdog.backend.domain.RefreshToken;
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
 import com.smarthealthdog.backend.exceptions.BadCredentialsException;
+import com.smarthealthdog.backend.repositories.PermissionRepository;
 import com.smarthealthdog.backend.repositories.RefreshTokenRepository;
 import com.smarthealthdog.backend.repositories.RoleRepository;
+import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.utils.JWTUtils;
 
 import io.jsonwebtoken.Jwts;
@@ -49,6 +53,12 @@ public class RefreshTokenServiceTest {
     private UserService userService;
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PermissionRepository permissionRepository;
+
+    @Autowired
     private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
@@ -61,11 +71,15 @@ public class RefreshTokenServiceTest {
 
     @BeforeAll
     void setUp() {
-        roleRepository.deleteAll();
+        Permission loginPermission = new Permission();
+        loginPermission.setName(PermissionEnum.CAN_LOGIN);
+        loginPermission.setDescription("Can log in");
+        permissionRepository.save(loginPermission);
+
         Role unverifiedRole = new Role();
         unverifiedRole.setName(RoleEnum.UNVERIFIED_USER);
         unverifiedRole.setDescription("Unverified User");
-
+        unverifiedRole.setPermissions(Set.of(loginPermission));
         roleRepository.save(unverifiedRole);
 
         // Create a new user before each test
@@ -97,19 +111,17 @@ public class RefreshTokenServiceTest {
         );
     }
 
-    @BeforeEach
-    void setUpEach() {
-        refreshTokenRepository.deleteAll();
-    }
-
     @AfterEach
-    void tearDown() {
+    void cleanUp() {
         refreshTokenRepository.deleteAll();
     }
 
     @AfterAll
-    void tearDownAll() {
+    void tearDown() {
         refreshTokenRepository.deleteAll();
+        userRepository.deleteAll();
+        roleRepository.deleteAll();
+        permissionRepository.deleteAll();
     }
 
     @Test
