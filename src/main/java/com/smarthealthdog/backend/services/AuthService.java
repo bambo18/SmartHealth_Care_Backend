@@ -11,6 +11,7 @@ import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.LoginResponse;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
+import com.smarthealthdog.backend.exceptions.BadCredentialsException;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.validation.ErrorCode;
@@ -18,14 +19,17 @@ import com.smarthealthdog.backend.validation.ErrorCode;
 @Service
 public class AuthService {
     private final RefreshTokenService refreshTokenService;
+    private final RefreshTokenCleanupService refreshTokenCleanupService;
     private final UserService userService;
 
     @Autowired
     public AuthService(
         RefreshTokenService refreshTokenService,
+        RefreshTokenCleanupService refreshTokenCleanupService,
         UserService userService
     ) {
         this.refreshTokenService = refreshTokenService;
+        this.refreshTokenCleanupService = refreshTokenCleanupService;
         this.userService = userService;
     }
 
@@ -45,6 +49,7 @@ public class AuthService {
         userService.resetEmailVerificationFailCount(user);
     }
 
+
     /**
      * 로그인 시 액세스 토큰과 리프레시 토큰 생성
      * @param userId
@@ -56,15 +61,48 @@ public class AuthService {
             .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND));
 
         // 만료된 리프레시 토큰 삭제
-        refreshTokenService.deleteUserRefreshTokensIfExpired(user);
+        refreshTokenCleanupService.deleteUserRefreshTokensIfExpired(user);
 
         String refreshToken = refreshTokenService.generateRefreshToken(user);
         String accessToken = refreshTokenService.generateAccessToken(refreshToken);
+        String accessExpiration = refreshTokenService.getExpirationFromTokenInISOString(accessToken);
 
         // 유저의 리프레시 토큰 개수가 최대 개수를 초과하는지 확인하고, 초과하는 경우 오래된 토큰부터 삭제
-        refreshTokenService.enforceMaxRefreshTokenCount(user);
+        refreshTokenCleanupService.enforceMaxRefreshTokenCount(user);
 
-        return new LoginResponse(accessToken, refreshToken);
+        return new LoginResponse(accessToken, refreshToken, accessExpiration);
+    }
+
+    /**
+     * 리프레시 토큰을 사용하여 새로운 액세스 토큰과 리프레시 토큰 생성
+     * @param refreshToken
+     * @return
+     * @throws BadCredentialsException 토큰이 유효하지 않을 경우 발생
+     */
+    @Transactional
+    public LoginResponse refreshAccessToken(String refreshToken) {
+        if (refreshToken == null || refreshToken.isEmpty()) {
+            throw new BadCredentialsException(ErrorCode.LOGIN_FAILURE);
+        }
+
+        // 리프레시 토큰이 유효한지 확인
+        refreshTokenService.validateRefreshToken(refreshToken);
+
+        User user = refreshTokenService.getUserFromToken(refreshToken);
+        if (user == null) {
+            throw new BadCredentialsException(ErrorCode.LOGIN_FAILURE);
+        }
+
+        // 만료된 리프레시 토큰 삭제
+        refreshTokenCleanupService.deleteUserRefreshTokensIfExpired(user);
+
+        String newRefreshToken = refreshTokenService.rotateRefreshToken(refreshToken);
+        String accessToken = refreshTokenService.generateAccessToken(newRefreshToken);
+        String accessExpiration = refreshTokenService.getExpirationFromTokenInISOString(accessToken);
+
+        refreshTokenCleanupService.enforceMaxRefreshTokenCount(user);
+
+        return new LoginResponse(accessToken, newRefreshToken, accessExpiration);
     }
 
     /**
