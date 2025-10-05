@@ -34,7 +34,8 @@ public class GlobalExceptionHandler {
             MalformedJwtException.class,
             ExpiredJwtException.class,
             UnsupportedJwtException.class,
-            BadCredentialsException.class
+            BadCredentialsException.class,
+            com.smarthealthdog.backend.exceptions.BadCredentialsException.class
         }
     )
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
