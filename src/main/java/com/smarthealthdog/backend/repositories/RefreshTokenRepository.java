@@ -21,12 +21,14 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
     public void deleteByUserAndId(User user, UUID id);
 
     @Modifying(clearAutomatically = true)
-    @Query("DELETE FROM RefreshToken rt WHERE rt.expiresAt < :now")
+    @Query("DELETE FROM RefreshToken rt WHERE rt.expiresAt <= :now")
     public int deleteAllExpiredSince(@Param("now") Instant now);
 
     @Modifying(clearAutomatically = true)
     @Query("DELETE FROM RefreshToken rt WHERE rt.expiresAt <= :now AND rt.user = :user")
     public int deleteAllExpiredSinceByUser(@Param("now") Instant now, @Param("user") User user);
+
+    public boolean existsByIdAndUser(UUID id, User user);
 
     public List<RefreshToken> findByUser(User user);
 }
