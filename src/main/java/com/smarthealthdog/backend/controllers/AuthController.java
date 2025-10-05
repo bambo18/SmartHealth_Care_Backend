@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.LoginRequest;
 import com.smarthealthdog.backend.dto.LoginResponse;
+import com.smarthealthdog.backend.dto.RefreshTokenRequest;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
 import com.smarthealthdog.backend.dto.UserEmailVerifyRequest;
 import com.smarthealthdog.backend.services.AuthService;
@@ -66,6 +67,12 @@ public class AuthController {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         LoginResponse response = authService.generateTokens(Long.parseLong(userDetails.getUsername()));
 
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/token/refresh")
+    public ResponseEntity<LoginResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest refreshToken) {
+        LoginResponse response = authService.refreshAccessToken(refreshToken.refreshToken());
         return ResponseEntity.ok(response);
     }
 }
