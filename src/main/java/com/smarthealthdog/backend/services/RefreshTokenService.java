@@ -1,14 +1,15 @@
 package com.smarthealthdog.backend.services;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
-import java.util.List;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.smarthealthdog.backend.domain.RefreshToken;
@@ -24,7 +25,9 @@ import io.jsonwebtoken.Jws;
 @Service
 public class RefreshTokenService {
     private final RefreshTokenRepository refreshTokenRepository; 
+    private final RefreshTokenCleanupService refreshTokenCleanupService;
     private final JWTUtils jwtUtils;
+    private final UserService userService;
 
     // 리프레시 토큰 만료 기간(일)
     @Value("${jwt.refresh-token.expiration.days}")
@@ -37,61 +40,14 @@ public class RefreshTokenService {
     @Autowired
     public RefreshTokenService(
         RefreshTokenRepository refreshTokenRepository,
-        JWTUtils jwtUtils
+        RefreshTokenCleanupService refreshTokenCleanupService,
+        JWTUtils jwtUtils,
+        UserService userService
     ) {
         this.refreshTokenRepository = refreshTokenRepository;
+        this.refreshTokenCleanupService = refreshTokenCleanupService;
         this.jwtUtils = jwtUtils;
-    }
-
-    /**
-     * 유저의 모든 리프레시 토큰 삭제
-     * @param user
-     */
-    @Transactional
-    public void deleteUserRefreshTokens(User user) {
-        refreshTokenRepository.deleteByUser(user);
-    }
-
-    /**
-     * 유저의 만료된 리프레시 토큰 삭제
-     * @param user
-     */
-    @Transactional
-    public void deleteUserRefreshTokensIfExpired(User user) {
-        Instant now = Instant.now();
-        refreshTokenRepository.deleteAllExpiredSinceByUser(now, user);
-    }
-
-    /**
-     * 특정 리프레시 토큰 삭제
-     * @param tokenId UUID 형식의 토큰 ID
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void deleteRefreshTokensById(UUID tokenId) {
-        refreshTokenRepository.deleteById(tokenId);
-    }
-
-    /**
-     * 유저의 리프레시 토큰 개수가 최대 개수를 초과하는지 확인하고, 초과하는 경우 오래된 토큰부터 삭제
-     * @param user
-     */
-    @Transactional
-    public void enforceMaxRefreshTokenCount(User user) {
-        if (maxRefreshTokenCount == null || maxRefreshTokenCount <= 0) {
-            return;
-        }
-
-        // 유저의 모든 리프레시 토큰 조회
-        List<RefreshToken> tokens = refreshTokenRepository.findByUser(user);
-        int tokenCount = tokens.size();
-
-        // 최대 개수를 초과하는 경우 오래된 토큰부터 삭제
-        if (tokenCount > maxRefreshTokenCount) {
-            int lastTokenToDeleteIndex = tokenCount - maxRefreshTokenCount - 1;
-            RefreshToken tokenToDelete = tokens.get(lastTokenToDeleteIndex);
-
-            refreshTokenRepository.deleteAllExpiredSinceByUser(tokenToDelete.getExpiresAt(), user);
-        }
+        this.userService = userService;
     }
 
     /**
@@ -120,8 +76,10 @@ public class RefreshTokenService {
             throw new IllegalArgumentException("User or User ID cannot be null");
         }
 
-        Date issuedAt = new Date();
-        Instant expiresAt = Instant.now().plusSeconds(refreshTokenExpirationInDays * 24 * 60 * 60);
+        Instant now = Instant.now();
+
+        Date issuedAt = Date.from(now);
+        Instant expiresAt = now.plusSeconds(refreshTokenExpirationInDays * 24 * 60 * 60);
 
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUser(user);
@@ -137,6 +95,76 @@ public class RefreshTokenService {
     }
 
     /**
+     * 기존 리프레시 토큰을 사용하여 새로운 리프레시 토큰 생성 (기존 토큰 폐기)
+     * @param user
+     * @param oldToken
+     * @return 새로 발급된 리프레시 토큰
+     * @throws BadCredentialsException 토큰이 유효하지 않을 경우 발생
+     */
+    @Transactional
+    public String generateRefreshTokenWithOldToken(User user, String oldToken) {
+        if (user == null || user.getId() == null) {
+            throw new IllegalArgumentException("유저 또는 유저 ID는 null일 수 없습니다.");
+        }
+
+        if (oldToken == null || oldToken.isEmpty()) {
+            throw new IllegalArgumentException("Old token은 null이거나 비어있을 수 없습니다.");
+        }
+
+        validateRefreshToken(oldToken);
+
+        // oldToken에서 클레임 추출
+        Jws<Claims> claims = jwtUtils.getAllClaimsFromToken(oldToken);
+        if (claims == null) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        // 토큰에서 JTI(토큰 ID) 추출
+        String tokenId = claims.getPayload().getId();
+        if (tokenId == null || tokenId.isEmpty()) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        UUID uuid;
+        try {
+            uuid = UUID.fromString(tokenId);
+        } catch (IllegalArgumentException e) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        // issuedAt 추출
+        Date issuedAt = claims.getPayload().getIssuedAt();
+        if (issuedAt == null) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        // expiresAt 추출
+        Date expiresAtInDate = claims.getPayload().getExpiration();
+        if (expiresAtInDate == null) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        Instant expiresAt = expiresAtInDate.toInstant();
+
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setUser(user);
+        refreshToken.setId(UUID.randomUUID());
+        refreshToken.setExpiresAt(expiresAt);
+
+        refreshTokenRepository.save(refreshToken);
+
+        // 기존 토큰 삭제
+        refreshTokenCleanupService.deleteRefreshTokensById(uuid);
+
+        // 새 토큰 생성
+        return jwtUtils.generateRefreshToken(
+            user.getId().toString(), 
+            refreshToken.getId(), 
+            issuedAt
+        );
+    }
+
+    /**
      * 토큰에서 클레임 추출
      * @param token
      * @return 토큰의 클레임
@@ -144,21 +172,72 @@ public class RefreshTokenService {
      */
     public Jws<Claims> getClaimsFromToken(String token) {
         try {
-            jwtUtils.validateJwtToken(token);
             return jwtUtils.getAllClaimsFromToken(token);
         } catch (Exception e) {
             throw new BadCredentialsException(ErrorCode.INVALID_JWT);
         }
     }
 
-    /** 
-     * 만료된 토큰 제거
-     * @throws RuntimeException DB 오류 발생 시 발생
-    */
-    @Transactional
-    public void removeExpiredTokens() {
-        Instant now = Instant.now();
-        refreshTokenRepository.deleteAllExpiredSince(now);
+    /**
+     * 토큰에서 만료 시간 추출
+     * @param token
+     * @return 토큰의 만료 시간
+     * @throws BadCredentialsException 토큰이 유효하지 않을 경우 발생
+     */
+    public Date getExpirationFromToken(String token) throws BadCredentialsException {
+        try {
+            Jws<Claims> claims = getClaimsFromToken(token);
+            if (claims == null) {
+                return null;
+            }
+
+            return claims.getPayload().getExpiration();
+        } catch (Exception e) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+    }
+
+    /**
+     * 토큰에서 만료 시간 추출(ISO 8601 형식)
+     * @param token
+     * @return 토큰의 만료 시간(ISO 8601 형식)
+     * @throws BadCredentialsException 토큰이 유효하지 않을 경우 발생
+     */
+    public String getExpirationFromTokenInISOString(String token) throws BadCredentialsException {
+        Date date = getExpirationFromToken(token);
+        if (date == null) {
+            return null;
+        }
+
+        // 인스턴트로 변환
+        Instant instant = date.toInstant();
+
+        // Instant를 UTC의 OffsetDateTime으로 변환
+        OffsetDateTime odt = instant.atOffset(ZoneOffset.UTC);
+        DateTimeFormatter formatter = DateTimeFormatter.ISO_INSTANT;
+
+        // OffsetDateTime을 ISO 8601 문자열로 포맷
+        return odt.format(formatter);
+    }
+
+    /**
+     * 토큰에서 유저 ID 추출 후 유저 객체 조회
+     * @param token
+     * @return 유저 객체, 토큰이 유효하지 않거나 유저를 찾을 수 없는 경우 null 반환
+     */
+    public User getUserFromToken(String token) {
+        Jws<Claims> claims = getClaimsFromToken(token);
+        if (claims == null) {
+            return null;
+        }
+
+        String userId = claims.getPayload().getSubject();
+        if (userId == null || userId.isEmpty()) {
+            return null;
+        }
+
+        return userService.getUserById(Long.parseLong(userId))
+                          .orElse(null);
     }
 
     /**
@@ -199,6 +278,46 @@ public class RefreshTokenService {
 
         // 토큰 ID가 데이터베이스에서 삭제
         refreshTokenRepository.deleteById(uuid);
+    }
+
+    /**
+     * 리프레시 토큰 재발급 (기존 토큰 폐기)
+     * @param oldToken
+     * @return 새로 발급된 리프레시 토큰
+     * @throws BadCredentialsException 토큰이 유효하지 않을 경우 발생
+     */
+    @Transactional
+    public String rotateRefreshToken(String oldToken) throws BadCredentialsException {
+        if (oldToken == null || oldToken.isEmpty()) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        Jws<Claims> claims;
+        try {
+            claims = jwtUtils.getAllClaimsFromToken(oldToken);
+        } catch (Exception e) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        if (claims == null) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        // 토큰에서 사용자 ID(sub) 추출
+        String userId = claims.getPayload().getSubject();
+        if (userId == null || userId.isEmpty()) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        User user;
+        try {
+            user = userService.getUserById(Long.parseLong(userId))
+                .orElseThrow(() -> new BadCredentialsException(ErrorCode.INVALID_JWT));
+        } catch (NumberFormatException e) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        return generateRefreshTokenWithOldToken(user, oldToken);
     }
 
     /**
@@ -248,6 +367,7 @@ public class RefreshTokenService {
      * @param token
      * @throws BadCredentialsException 리프레시 토큰이 유효하지 않을 경우 발생
      */
+    @Transactional
     public void validateRefreshToken(String token) throws BadCredentialsException {
         if (token == null || token.isEmpty()) {
             throw new BadCredentialsException(ErrorCode.INVALID_JWT);
@@ -258,6 +378,7 @@ public class RefreshTokenService {
         try {
             claims = jwtUtils.getAllClaimsFromToken(token);
         } catch (Exception e) {
+            refreshTokenCleanupService.removeExpiredTokens();
             throw new BadCredentialsException(ErrorCode.INVALID_JWT);
         }
 
@@ -272,8 +393,11 @@ public class RefreshTokenService {
         }
 
         // 유저 ID가 숫자 형식인지 확인
+        User user;
         try {
-            Long.parseLong(userId);
+            Long userIdInLong = Long.parseLong(userId);
+            user = userService.getUserById(userIdInLong)
+                .orElseThrow(() -> new BadCredentialsException(ErrorCode.INVALID_JWT));
         } catch (NumberFormatException e) {
             throw new BadCredentialsException(ErrorCode.INVALID_JWT);
         }
@@ -293,15 +417,23 @@ public class RefreshTokenService {
         }
 
         // 토큰 ID가 데이터베이스에 존재하는지 확인
-        boolean storedToken = refreshTokenRepository.existsById(tokenUuid);
-        if (storedToken == false) {
+        RefreshToken refreshToken = refreshTokenRepository.findById(tokenUuid)
+            .orElse(null);
+
+        // 토큰이 존재하지 않거나, 토큰의 유저 ID가 토큰의 유저 ID와 일치하지 않는 경우
+        if (refreshToken == null) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        } else if (refreshToken.getUser() == null || !refreshToken.getUser().getId().equals(user.getId())) {
+            // 토큰 ID가 유효하지 않으므로 데이터베이스에서 삭제
+            refreshTokenCleanupService.deleteRefreshTokensByIdInNewTransaction(tokenUuid);
             throw new BadCredentialsException(ErrorCode.INVALID_JWT);
         }
 
         // 토큰 만료 시간(exp) 확인
         Date expiration = claims.getPayload().getExpiration();
         if (expiration == null || expiration.before(new Date())) {
-            deleteRefreshTokensById(tokenUuid);
+            // 토큰이 만료되었으므로 데이터베이스에서 삭제
+            refreshTokenCleanupService.deleteRefreshTokensByIdInNewTransaction(tokenUuid);
             throw new BadCredentialsException(ErrorCode.INVALID_JWT);
         }
     }
