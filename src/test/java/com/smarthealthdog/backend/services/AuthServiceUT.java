@@ -22,6 +22,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,6 +35,9 @@ class AuthServiceUT {
 
     @Mock
     private RefreshTokenService refreshTokenService;
+
+    @Mock
+    private RefreshTokenCleanupService refreshTokenCleanupService;
 
     @InjectMocks
     private AuthService authService;
@@ -346,16 +352,48 @@ class AuthServiceUT {
         // ARRANGE
         User mockUser = mock(User.class);
         when(userService.getUserById(mockUser.getId())).thenReturn(Optional.of(mockUser));
-        doNothing().when(refreshTokenService).deleteUserRefreshTokensIfExpired(mockUser);
+        doNothing().when(refreshTokenCleanupService).deleteUserRefreshTokensIfExpired(mockUser);
         when(refreshTokenService.generateRefreshToken(mockUser)).thenReturn("mockRefreshToken");
         when(refreshTokenService.generateAccessToken("mockRefreshToken")).thenReturn("mockAccessToken");
-        doNothing().when(refreshTokenService).enforceMaxRefreshTokenCount(mockUser);
+        Instant now = Instant.now();
+        doNothing().when(refreshTokenCleanupService).enforceMaxRefreshTokenCount(mockUser);
 
-        // ACT
+        // Convert Instant to OffsetDateTime in UTC
+        OffsetDateTime odt = now.atOffset(ZoneOffset.UTC);
+        DateTimeFormatter formatter = DateTimeFormatter.ISO_INSTANT;
+
+        when(refreshTokenService.getExpirationFromTokenInISOString("mockAccessToken"))
+            .thenReturn(odt.format(formatter));
+
         LoginResponse response = authService.generateTokens(mockUser.getId());
 
-        // ASSERT
         assertEquals("mockAccessToken", response.accessToken());
         assertEquals("mockRefreshToken", response.refreshToken());
+        assertEquals(odt.format(formatter), response.expiration());
+    }
+
+    @Test
+    void refreshAccessToken_shouldReturnNewAccessToken() {
+        // ARRANGE
+        String oldRefreshToken = "oldRefreshToken";
+        String newAccessToken = "newAccessToken";
+        String newRefreshToken = "newRefreshToken";
+
+        User mockUser = mock(User.class);
+        doNothing().when(refreshTokenService).validateRefreshToken(oldRefreshToken);
+        when(refreshTokenService.getUserFromToken(oldRefreshToken)).thenReturn(mockUser);
+        doNothing().when(refreshTokenCleanupService).deleteUserRefreshTokensIfExpired(mockUser);
+        when(refreshTokenService.rotateRefreshToken(oldRefreshToken)).thenReturn(newRefreshToken);
+        when(refreshTokenService.generateAccessToken(newRefreshToken)).thenReturn(newAccessToken);
+        when(refreshTokenService.getExpirationFromTokenInISOString(newAccessToken))
+            .thenReturn("2024-12-31T23:59:59Z");
+        doNothing().when(refreshTokenCleanupService).enforceMaxRefreshTokenCount(mockUser);
+
+        // ACT
+        LoginResponse response = authService.refreshAccessToken(oldRefreshToken);
+        // ASSERT
+        assertEquals(newAccessToken, response.accessToken());
+        assertEquals(newRefreshToken, response.refreshToken());
+        assertEquals("2024-12-31T23:59:59Z", response.expiration());
     }
 }

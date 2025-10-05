@@ -27,6 +27,7 @@ import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.LoginResponse;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
+import com.smarthealthdog.backend.exceptions.BadCredentialsException;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.repositories.RefreshTokenRepository;
@@ -407,6 +408,7 @@ public class AuthServiceTest {
         LoginResponse loginResponse = authService.generateTokens(user.getId());
         assertTrue(loginResponse.accessToken() != null && loginResponse.accessToken().length() > 0);
         assertTrue(loginResponse.refreshToken() != null && loginResponse.refreshToken().length() > 0);
+        assertTrue(loginResponse.expiration() != null && loginResponse.expiration().length() > 0);
     }
 
     @Test
@@ -478,5 +480,48 @@ public class AuthServiceTest {
         // Ensure that at least one of the original tokens has been removed
         originalTokenIds.retainAll(updatedTokenIds);
         assertTrue(originalTokenIds.size() == 9);
+    }
+
+    @Test
+    void refreshAccessToken_ShouldThrowException_WhenRefreshTokenIsNullOrEmpty() {
+        assertThrows(BadCredentialsException.class, () -> {
+            authService.refreshAccessToken(null);
+        });
+
+        assertThrows(BadCredentialsException.class, () -> {
+            authService.refreshAccessToken("");
+        });
+    }
+
+    @Test
+    void refreshAccessToken_ShouldThrowException_WhenRefreshTokenIsInvalid() {
+        assertThrows(BadCredentialsException.class, () -> {
+            authService.refreshAccessToken("invalid.token.here");
+        });
+    }
+
+    @Test
+    void refreshAccessToken_ShouldReturnNewTokens_WhenRefreshTokenIsValid() {
+        // Arrange
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "testuser",
+            "test@example.com",
+            "TestPassword123!"
+        );
+
+        // Act
+        User user = authService.registerUser(createRequest);
+        user.setRole(roleRepository.findByName(RoleEnum.USER).orElseThrow());
+        userRepository.save(user);
+
+        String refreshToken = refreshTokenService.generateRefreshToken(user);
+        assertTrue(refreshToken != null && refreshToken.length() > 0);
+
+        // Assert
+        LoginResponse loginResponse = authService.refreshAccessToken(refreshToken);
+        assertTrue(loginResponse.accessToken() != null && loginResponse.accessToken().length() > 0);
+        assertTrue(loginResponse.refreshToken() != null && loginResponse.refreshToken().length() > 0);
+        assertTrue(loginResponse.expiration() != null && loginResponse.expiration().length() > 0);
+        assertTrue(!loginResponse.refreshToken().equals(refreshToken));
     }
 }
