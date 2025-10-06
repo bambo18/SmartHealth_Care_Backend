@@ -70,6 +70,12 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logoutUser(@Valid @RequestBody RefreshTokenRequest refreshToken) {
+        authService.invalidateRefreshToken(refreshToken.refreshToken());
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).body(null);
+    }
+
     @PostMapping("/token/refresh")
     public ResponseEntity<LoginResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest refreshToken) {
         LoginResponse response = authService.refreshAccessToken(refreshToken.refreshToken());
