@@ -1,5 +1,6 @@
 package com.smarthealthdog.backend.controllers;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -7,7 +8,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.util.Date;
 import java.util.Optional;
+import java.util.UUID;
+
+import javax.crypto.SecretKey;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -21,17 +26,26 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smarthealthdog.backend.domain.RefreshToken;
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
+import com.smarthealthdog.backend.dto.LoginResponse;
+import com.smarthealthdog.backend.dto.RefreshTokenRequest;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
 import com.smarthealthdog.backend.dto.UserEmailVerifyRequest;
+import com.smarthealthdog.backend.repositories.RefreshTokenRepository;
 import com.smarthealthdog.backend.repositories.RoleRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.services.EmailService;
+import com.smarthealthdog.backend.utils.JWTUtils;
+
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 
 @TestInstance(Lifecycle.PER_CLASS)
 @SpringBootTest
@@ -51,8 +65,16 @@ public class AuthControllerTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    private JWTUtils jwtUtils;
+
     @MockitoBean
     private EmailService emailService;
+
+    SecretKey key;
 
     private String toJson(Object obj) throws Exception {
         return objectMapper.writeValueAsString(obj);
@@ -75,17 +97,28 @@ public class AuthControllerTest {
         roleRepository.save(userRole);
 
         roleRepository.flush();
+
+        // Initialize JWTUtils
+        // generate a 64 hex character secret key for HS256
+        key = Jwts.SIG.HS256.key().build();
+        ReflectionTestUtils.setField(
+            jwtUtils, 
+            "key",
+            Keys.hmacShaKeyFor(key.getEncoded())
+        );
     }
 
     @AfterEach
     void tearDown() {
         // Runs after each test
+        refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
     }
 
     @AfterAll
     void tearDownAll() {
         // Runs once after all tests
+        refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
         roleRepository.deleteAll();
     }
@@ -233,6 +266,214 @@ public class AuthControllerTest {
         assertTrue(userOpt.isPresent());
         user = userOpt.get();
         assertTrue(user.getRole().getName().equals(RoleEnum.USER));
+    }
+
+    @Test
+    void authenticateUser_ShouldReturn400BadRequest_WhenRequestEmailIsInvalid() throws Exception {
+        // Invalid email format
+        String invalidEmail = "invalid-email";
+        String password = "Password123!";
+
+        mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(invalidEmail, password))))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void authenticateUser_ShouldReturn400BadRequest_WhenRequestEmailIsBlank() throws Exception {
+        String blankEmail = "";
+        String password = "Password123!";
+
+        mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(blankEmail, password))))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void authenticateUser_ShouldReturn400BadRequest_WhenRequestPasswordIsBlank() throws Exception {
+        String email = "user@example.com";
+        String blankPassword = "";
+        mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(email, blankPassword))))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void authenticateUser_ShouldReturn401Unauthorized_WhenCredentialsAreInvalid() throws Exception {
+        // First, create a user
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "loginuser",
+            "loginuser@example.com",
+            "Password123!"
+        );
+
+        mockMvc.perform(post("/api/auth/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(createRequest)))
+            .andExpect(status().isCreated());
+
+        // Now, attempt to login with incorrect password
+        String email = "loginuser@example.com";
+        String wrongPassword = "WrongPassword!";
+        mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(email, wrongPassword))))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void authenticateUser_ShouldReturn200OKAndTokens_WhenCredentialsAreValid() throws Exception {
+        // First, create a user
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "validuser",
+            "validuser@example.com",
+            "Password123!"
+        );
+
+        mockMvc.perform(post("/api/auth/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(createRequest)))
+            .andExpect(status().isCreated());
+
+        // Now, attempt to login with correct credentials
+        String email = "validuser@example.com";
+        String password = "Password123!";
+        String response = mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(email, password))))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        LoginResponse loginResponse = objectMapper.readValue(response, LoginResponse.class);
+        assertNotNull(loginResponse);
+        assertNotNull(loginResponse.accessToken());
+        assertNotNull(loginResponse.refreshToken());
+        assertNotNull(loginResponse.expiration());
+        assertTrue(!loginResponse.accessToken().isEmpty());
+        assertTrue(!loginResponse.refreshToken().isEmpty());
+        assertTrue(!loginResponse.expiration().isEmpty());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn400BadRequest_WhenRequestTokenIsBlank() throws Exception {
+        RefreshTokenRequest request = new RefreshTokenRequest("");
+
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn401Unauthorized_WhenRequestTokenIsInvalid() throws Exception {
+        RefreshTokenRequest request = new RefreshTokenRequest("invalid-token");
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn401Unauthorized_WhenRequestTokenDoesNotHaveClaims() throws Exception {
+        // Create a token without claims
+        String invalidToken = Jwts.builder()
+                                  .signWith(key)
+                                  .compact();
+
+        RefreshTokenRequest request = new RefreshTokenRequest(invalidToken);
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn401Unauthorized_WhenRequestTokenSubjectIsNotNumeric() throws Exception {
+        String invalidToken = jwtUtils.generateRefreshToken("non-numeric-subject", UUID.randomUUID(), Date.from(Instant.now().plusSeconds(60 * 60 * 24 * 7))); // 7 days expiry
+        RefreshTokenRequest request = new RefreshTokenRequest(invalidToken);
+
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn204NoContent_WhenRequestTokenJTIIsNotUUID() throws Exception {
+        String invalidTokenWithNonUUIDJTI = Jwts.builder()
+                                            .subject("1")
+                                            .id("non-uuid-jti")
+                                            .issuedAt(new Date())
+                                            .expiration(Date.from(Instant.now().plusSeconds(60 * 60 * 24 * 7))) // 7 days expiry
+                                            .signWith(key)
+                                            .compact();
+
+        RefreshTokenRequest request = new RefreshTokenRequest(invalidTokenWithNonUUIDJTI);
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn401Unauthorized_WhenRequestTokenIsNotInDatabase() throws Exception {
+        String validTokenNotInDB = jwtUtils.generateRefreshToken("1", UUID.randomUUID(), Date.from(Instant.now().plusSeconds(60 * 60 * 24 * 7))); // 7 days expiry
+        RefreshTokenRequest request = new RefreshTokenRequest(validTokenNotInDB);
+
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn204NoContent_WhenRequestIsValid() throws Exception {
+        // Soon to be implemented: Create a user and a refresh token in the database
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "logoutuser",
+            "logoutuser@example.com",
+            "Password123!"
+        );
+        mockMvc.perform(post("/api/auth/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(createRequest)))
+            .andExpect(status().isCreated());
+
+        // 로그인하여 토큰 발급
+        String email = "logoutuser@example.com";
+        String password = "Password123!";
+        String response = mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(email, password))))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        LoginResponse loginResponse = objectMapper.readValue(response, LoginResponse.class);
+        assertNotNull(loginResponse);
+        assertNotNull(loginResponse.refreshToken());
+        assertTrue(!loginResponse.refreshToken().isEmpty());
+
+        String refreshToken = loginResponse.refreshToken();
+
+        // 로그아웃 요청
+        RefreshTokenRequest request = new RefreshTokenRequest(refreshToken);
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isNoContent());
+
+        // 다시 한 번 로그아웃 요청 - 이미 삭제된 토큰이므로 401 Unauthorized
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -512,5 +753,96 @@ public class AuthControllerTest {
         Instant now = Instant.now();
         assertTrue(now.isAfter(user.getEmailVerificationExpiry()));
         assertTrue(user.getEmailVerificationFailCount() == 0);
+    }
+
+    @Test
+    void refreshToken_ShouldReturn400BadRequest_WhenRequestTokenIsBlank() throws Exception {
+        RefreshTokenRequest request = new RefreshTokenRequest("");
+
+        mockMvc.perform(post("/api/auth/token/refresh")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void refreshToken_ShouldReturn401Unauthorized_WhenRequestTokenIsInvalid() throws Exception {
+        RefreshTokenRequest request = new RefreshTokenRequest("invalid-token");
+
+        mockMvc.perform(post("/api/auth/token/refresh")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refreshToken_ShouldReturn401Unauthorized_WhenTokenSubjectIsNotNumeric() throws Exception {
+        String refreshToken = jwtUtils.generateRefreshToken("non-numeric-subject", UUID.randomUUID(), Date.from(Instant.now().minusSeconds(60 * 60 * 24 * 8))); // 8 days ago, assuming 7 days expiry
+        RefreshTokenRequest request = new RefreshTokenRequest(refreshToken);
+
+        mockMvc.perform(post("/api/auth/token/refresh")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refreshToken_ShouldReturn401Unauthorized_WhenTokenJTIIsNotFoundInDatabase() throws Exception {
+        String refreshToken = jwtUtils.generateRefreshToken("1", UUID.randomUUID(), Date.from(Instant.now().minusSeconds(60 * 60 * 24 * 8))); // 8 days ago, assuming 7 days expiry
+        RefreshTokenRequest request = new RefreshTokenRequest(refreshToken);
+
+        mockMvc.perform(post("/api/auth/token/refresh")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refreshToken_ShouldReturn401Unauthorized_WhenTokenIsExpired() throws Exception {
+        // First, create a user
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "refreshtestuser",
+            "refreshtestuser@example.com",
+            "Password123!"
+        );
+        mockMvc.perform(post("/api/auth/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(createRequest)))
+            .andExpect(status().isCreated());
+
+        Optional<User> userOpt = userRepository.findByEmail("refreshtestuser@example.com");
+        assertTrue(userOpt.isPresent());
+
+        User user = userOpt.get();
+        user.setRole(roleRepository.findByName(RoleEnum.USER).get());
+        userRepository.save(user);
+
+        // Then, create a refresh token for the user
+        String tokenId = UUID.randomUUID().toString();
+        Instant issuedAtInInstant = Instant.now().minusSeconds(60 * 60 * 24 * 8); // 8 days ago, assuming 7 days expiry
+        Instant expiredAtInInstant = issuedAtInInstant.plusSeconds(60 * 60 * 24 * 7); // 7 days expiry
+        String refreshToken = jwtUtils.generateRefreshToken(
+            String.valueOf(user.getId()), UUID.fromString(tokenId), Date.from(issuedAtInInstant));
+
+        RefreshToken rf = new RefreshToken();
+        rf.setId(UUID.fromString(tokenId));
+        rf.setUser(user);
+        rf.setExpiresAt(expiredAtInInstant);
+        refreshTokenRepository.save(rf);
+
+        RefreshToken foundToken = refreshTokenRepository.findById(UUID.fromString(tokenId)).orElse(null);
+        assertNotNull(foundToken);
+        assertTrue(foundToken.getUser().getId().equals(user.getId()));
+        assertTrue(foundToken.getExpiresAt().isBefore(Instant.now()));
+
+        RefreshTokenRequest request = new RefreshTokenRequest(refreshToken);
+        mockMvc.perform(post("/api/auth/token/refresh")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
+
+        // Verify that the expired token has been deleted from the database
+        Optional<RefreshToken> deletedTokenOpt = refreshTokenRepository.findById(UUID.fromString(tokenId));
+        assertTrue(deletedTokenOpt.isEmpty());
     }
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.LoginRequest;
 import com.smarthealthdog.backend.dto.LoginResponse;
+import com.smarthealthdog.backend.dto.RefreshTokenRequest;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
 import com.smarthealthdog.backend.dto.UserEmailVerifyRequest;
 import com.smarthealthdog.backend.services.AuthService;
@@ -79,7 +80,8 @@ class AuthControllerUT {
     void authenticateUser_ShouldReturn200AndTokens_OnSuccess() throws Exception {
         // ARRANGE
         LoginRequest loginRequest = new LoginRequest(MOCK_EMAIL, MOCK_PASSWORD);
-        LoginResponse expectedResponse = new LoginResponse("mock.access.token", "mock.refresh.token");
+        LoginResponse expectedResponse = new LoginResponse(
+                "mock.access.token", "mock.refresh.token", "2024-12-31T23:59:59Z");
 
         Authentication mockAuthentication = mock(Authentication.class);
         UserDetails mockUserDetails = mock(UserDetails.class);
@@ -179,6 +181,74 @@ class AuthControllerUT {
         // VERIFY: No services should be called
         verify(authService, never()).registerUser(any());
         verify(emailService, never()).sendEmailVerification(any());
+    }
+
+    // --- /logout Tests ---
+    @Test
+    void logoutUser_ShouldReturn400_OnInvalidInput() throws Exception {
+        // ARRANGE: Assuming validation rejects a blank token
+        RefreshTokenRequest invalidRequest = new RefreshTokenRequest("");
+
+        // ACT & ASSERT
+        mockMvc.perform(post(BASE_URL + "/logout")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(invalidRequest)))
+                .andExpect(status().isBadRequest()); // Expect 400 Bad Request
+
+        // VERIFY: AuthService should not be called
+        verify(authService, never()).invalidateRefreshToken(any());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn204_OnSuccess() throws Exception {
+        // ARRANGE
+        RefreshTokenRequest request = new RefreshTokenRequest("valid.refresh.token");
+        doNothing().when(authService).invalidateRefreshToken("valid.refresh.token");
+
+        // ACT & ASSERT
+        mockMvc.perform(post(BASE_URL + "/logout")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(request)))
+                .andExpect(status().isNoContent()) // Expect 204 No Content
+                .andExpect(content().string("")); // Response body must be empty for 204
+
+        // VERIFY
+        verify(authService, times(1)).invalidateRefreshToken("valid.refresh.token");
+    }
+
+    // --- /token/refresh Tests ---
+    @Test
+    void refreshToken_ShouldReturn200AndNewTokens_OnSuccess() throws Exception {
+        RefreshTokenRequest request = new RefreshTokenRequest("valid.refresh.token");
+        when(authService.refreshAccessToken("valid.refresh.token"))
+                .thenReturn(new LoginResponse("new.access.token", "new.refresh.token", "2024-12-31T23:59:59Z"));
+
+        // ACT & ASSERT
+        mockMvc.perform(post(BASE_URL + "/token/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("new.access.token"))
+                .andExpect(jsonPath("$.refreshToken").value("new.refresh.token"))
+                .andExpect(jsonPath("$.expiration").value("2024-12-31T23:59:59Z"));
+        
+        // VERIFY
+        verify(authService, times(1)).refreshAccessToken("valid.refresh.token");
+    }
+
+    @Test
+    void refreshToken_ShouldReturn400_OnInvalidInput() throws Exception {
+        // ARRANGE: Assuming validation rejects a blank token
+        RefreshTokenRequest invalidRequest = new RefreshTokenRequest("");
+
+        // ACT & ASSERT
+        mockMvc.perform(post(BASE_URL + "/token/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(invalidRequest)))
+                .andExpect(status().isBadRequest()); // Expect 400 Bad Request
+
+        // VERIFY: AuthService should not be called
+        verify(authService, never()).refreshAccessToken(any());
     }
 
     // --- /register/verify-email Tests ---

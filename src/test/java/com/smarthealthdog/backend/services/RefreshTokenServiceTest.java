@@ -1,8 +1,11 @@
 package com.smarthealthdog.backend.services;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -35,6 +38,8 @@ import com.smarthealthdog.backend.repositories.RoleRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.utils.JWTUtils;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
@@ -125,7 +130,7 @@ public class RefreshTokenServiceTest {
     }
 
     @Test
-    void deleteUserRefreshTokens_ShouldDeleteAllTokensForUser() {
+    void getExpirationFromToken_ShouldReturnExpirationInDate() {
         Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
         assertTrue(userOpt.isPresent());
 
@@ -133,8 +138,36 @@ public class RefreshTokenServiceTest {
         String token = refreshTokenService.generateRefreshToken(user);
         refreshTokenService.validateRefreshToken(token);
 
-        refreshTokenService.deleteUserRefreshTokens(user);
-        assert(refreshTokenRepository.findByUser(user).isEmpty());
+        Date expiration = refreshTokenService.getExpirationFromToken(token);
+        assertTrue(expiration != null);
+        assertTrue(expiration.after(new Date()));
+    }
+
+    @Test
+    void getExpirationFromTokenInISOString_ShouldReturnExpirationInISOString() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+        User user = userOpt.get();
+        String token = refreshTokenService.generateRefreshToken(user);
+        refreshTokenService.validateRefreshToken(token);
+
+        String expiration = refreshTokenService.getExpirationFromTokenInISOString(token);
+        assertTrue(expiration != null);
+        assertTrue(!expiration.isEmpty());
+        assertTrue(expiration.contains("T") && expiration.contains("Z"));
+    }
+
+    @Test
+    void getUserFromToken_ShouldReturnUser() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+        User user = userOpt.get();
+        String token = refreshTokenService.generateRefreshToken(user);
+        refreshTokenService.validateRefreshToken(token);
+        User tokenUser = refreshTokenService.getUserFromToken(token);
+
+        assertTrue(tokenUser != null);
+        assertTrue(tokenUser.getId().equals(user.getId()));
     }
 
     @Test
@@ -155,6 +188,148 @@ public class RefreshTokenServiceTest {
         });
 
         assertTrue(exception.getMessage().contains("User or User ID cannot be null"));
+    }
+
+    @Test
+    void generateRefreshTokenWithOldToken_ShouldThrowException_WhenUserIsNull() {
+        assertThrows(IllegalArgumentException.class, () -> {
+            refreshTokenService.generateRefreshTokenWithOldToken(null, "oldToken");
+        });
+    }
+
+    @Test
+    void generateRefreshTokenWithOldToken_ShouldThrowException_WhenOldTokenIsNullOrEmpty() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+
+        User user = userOpt.get();
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            refreshTokenService.generateRefreshTokenWithOldToken(user, null);
+        });
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            refreshTokenService.generateRefreshTokenWithOldToken(user, "");
+        });
+    }
+
+    @Test
+    void generateRefreshTokenWithOldToken_ShouldThrowException_WhenOldTokenIsInvalid() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+
+        User user = userOpt.get();
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.generateRefreshTokenWithOldToken(user, "invalidOldToken");
+        });
+    }
+
+    @Test
+    void generateRefreshTokenWithOldToken_ShouldReturnNewToken_WhenOldTokenIsValid() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+
+        User user = userOpt.get();
+        String token = refreshTokenService.generateRefreshToken(user);
+        refreshTokenService.validateRefreshToken(token);
+
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 1);
+
+        String newToken = refreshTokenService.generateRefreshTokenWithOldToken(user, token);
+        assertTrue(newToken != null);
+        assertTrue(!newToken.equals(token));
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 1);
+    }
+
+    @Test
+    void getTokenById_ShouldReturnNull_WhenTokenIdDoesNotExist() {
+        UUID randomUuid = UUID.randomUUID();
+        RefreshToken token = refreshTokenService.getTokenById(randomUuid);
+        assertTrue(token == null);
+    }
+
+    @Test
+    void getTokenById_ShouldReturnToken_WhenTokenIdExists() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+
+        User user = userOpt.get();
+        String token = refreshTokenService.generateRefreshToken(user);
+        refreshTokenService.validateRefreshToken(token);
+
+        UUID tokenId = refreshTokenService.getTokenIdFromToken(token);
+        assertNotNull(tokenId);
+
+        RefreshToken foundToken = refreshTokenService.getTokenById(tokenId);
+        assertNotNull(foundToken);
+        assertEquals(tokenId, foundToken.getId());
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldThrowException_WhenTokenIsNullOrEmpty() {
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken(null);
+        });
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken("");
+        });
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldThrowException_WhenTokenIsInvalid() {
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken("invalid.token.here");
+        });
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldThrowException_WhenTokenHasEmptyClaims() {
+        String emptyClaimsToken = Jwts.builder()
+                                      .signWith(key)
+                                      .compact();
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken(emptyClaimsToken);
+        });
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldThrowException_WhenTokenIdIsMissing() {
+        String tokenWithoutId = Jwts.builder()
+                                    .subject("1234")
+                                    .signWith(key)
+                                    .compact();
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken(tokenWithoutId);
+        });
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldThrowException_WhenTokenIdIsNotUUID() {
+        String tokenWithInvalidId = Jwts.builder()
+                                        .id("not-a-uuid")
+                                        .subject("1234")
+                                        .signWith(key)
+                                        .compact();
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken(tokenWithInvalidId);
+        });
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldReturnTokenId_WhenTokenIsValid() {
+        String validToken = Jwts.builder()
+                                   .id(UUID.randomUUID().toString())
+                                   .subject("1234")
+                                   .signWith(key)
+                                   .compact();
+
+        UUID tokenId = refreshTokenService.getTokenIdFromToken(validToken);
+        assertNotNull(tokenId);
     }
 
     @Test
@@ -272,6 +447,129 @@ public class RefreshTokenServiceTest {
         assertThrows(BadCredentialsException.class, () -> {
             refreshTokenService.validateRefreshToken(expiredToken);
         });
+    }
+
+    @Test
+    void rotateRefreshToken_ShouldThrowBadCredentialsException_WhenTokenIsNullOrEmpty() {
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.rotateRefreshToken(null);
+        });
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.rotateRefreshToken("");
+        });
+    }
+
+    @Test
+    void rotateRefreshToken_ShouldThrowBadCredentialsException_WhenTokenIsInvalid() {
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.rotateRefreshToken("invalid.token.here");
+        });
+    }
+
+    @Test
+    void rotateRefreshToken_ShouldThrowBadCredentialsException_WhenTokenHasEmptyClaims() {
+        String emptyClaimsToken = Jwts.builder()
+                                      .signWith(key)
+                                      .compact();
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.rotateRefreshToken(emptyClaimsToken);
+        });
+    }
+
+    @Test
+    void rotateRefreshToken_ShouldThrowBadCredentialsException_WhenSubjectIsMissing() {
+        String tokenWithoutSubject = Jwts.builder()
+                                          .id("asdf")
+                                          .signWith(key)
+                                          .compact();
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.rotateRefreshToken(tokenWithoutSubject);
+        });
+    }
+
+    @Test
+    void rotateRefreshToken_ShouldThrowBadCredentialsException_WhenSubjectIsNotNumber() {
+        String tokenWithNonNumericSubject = Jwts.builder()
+                                               .id(UUID.randomUUID().toString())
+                                               .subject("not-a-number")
+                                               .signWith(key)
+                                               .compact();
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.rotateRefreshToken(tokenWithNonNumericSubject);
+        });
+    }
+
+    @Test
+    void rotateRefreshToken_ShouldThrowBadCredentialsException_WhenTokenIdIsMissing() {
+        String tokenWithoutId = Jwts.builder()
+                                    .subject("1234")
+                                    .signWith(key)
+                                    .compact();
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.rotateRefreshToken(tokenWithoutId);
+        });
+    }
+
+    @Test
+    void rotateRefreshToken_ShouldThrowBadCredentialsException_WhenTokenIdIsNotUUID() {
+        String tokenWithInvalidId = Jwts.builder()
+                                        .id("not-a-uuid")
+                                        .subject("1234")
+                                        .signWith(key)
+                                        .compact();
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.rotateRefreshToken(tokenWithInvalidId);
+        });
+    }
+
+    @Test
+    void rotateRefreshToken_ShouldThrowBadCredentialsException_WhenTokenIdDoesNotExistInDatabase() {
+        UUID randomUuid = UUID.randomUUID();
+        String tokenWithNonexistentId = Jwts.builder()
+                                            .id(randomUuid.toString())
+                                            .subject("1234")
+                                            .signWith(key)
+                                            .compact();
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.rotateRefreshToken(tokenWithNonexistentId);
+        });
+    }
+
+    @Test
+    void rotateRefreshToken_ShouldReturnNewToken_WhenOldTokenIsValid() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+
+        User user = userOpt.get();
+        String token = refreshTokenService.generateRefreshToken(user);
+        refreshTokenService.validateRefreshToken(token);
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 1);
+
+        String newToken = refreshTokenService.rotateRefreshToken(token);
+        assertTrue(newToken != null);
+        assertTrue(!newToken.equals(token));
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 1);
+
+        Jws<Claims> oldClaims = refreshTokenService.getClaimsFromToken(token);
+        Jws<Claims> newClaims = refreshTokenService.getClaimsFromToken(newToken);
+
+        assertTrue(oldClaims.getPayload().getSubject().equals(newClaims.getPayload().getSubject()));
+        assertTrue(!oldClaims.getPayload().getId().equals(newClaims.getPayload().getId()));
+        assertTrue(oldClaims.getPayload().getIssuedAt() != newClaims.getPayload().getIssuedAt());
+
+        // 새로운 토큰 생성 시, 만료 시간에 엄청 미세한 차이가 발생함
+        // 시간 차이가 1초 미만인지 확인
+        long timeDiff = Math.abs(newClaims.getPayload().getExpiration().getTime() -
+                                  oldClaims.getPayload().getExpiration().getTime());
+
+        assertTrue(timeDiff < 1000, "Expiration time difference is " + timeDiff + "ms");
     }
 
     @Test
