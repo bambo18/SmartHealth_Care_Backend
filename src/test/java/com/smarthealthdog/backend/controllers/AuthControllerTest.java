@@ -12,6 +12,8 @@ import java.util.Date;
 import java.util.Optional;
 import java.util.UUID;
 
+import javax.crypto.SecretKey;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -24,6 +26,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,6 +34,7 @@ import com.smarthealthdog.backend.domain.RefreshToken;
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
+import com.smarthealthdog.backend.dto.LoginResponse;
 import com.smarthealthdog.backend.dto.RefreshTokenRequest;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
 import com.smarthealthdog.backend.dto.UserEmailVerifyRequest;
@@ -39,6 +43,9 @@ import com.smarthealthdog.backend.repositories.RoleRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.services.EmailService;
 import com.smarthealthdog.backend.utils.JWTUtils;
+
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 
 @TestInstance(Lifecycle.PER_CLASS)
 @SpringBootTest
@@ -67,6 +74,8 @@ public class AuthControllerTest {
     @MockitoBean
     private EmailService emailService;
 
+    SecretKey key;
+
     private String toJson(Object obj) throws Exception {
         return objectMapper.writeValueAsString(obj);
     }
@@ -88,6 +97,15 @@ public class AuthControllerTest {
         roleRepository.save(userRole);
 
         roleRepository.flush();
+
+        // Initialize JWTUtils
+        // generate a 64 hex character secret key for HS256
+        key = Jwts.SIG.HS256.key().build();
+        ReflectionTestUtils.setField(
+            jwtUtils, 
+            "key",
+            Keys.hmacShaKeyFor(key.getEncoded())
+        );
     }
 
     @AfterEach
@@ -248,6 +266,214 @@ public class AuthControllerTest {
         assertTrue(userOpt.isPresent());
         user = userOpt.get();
         assertTrue(user.getRole().getName().equals(RoleEnum.USER));
+    }
+
+    @Test
+    void authenticateUser_ShouldReturn400BadRequest_WhenRequestEmailIsInvalid() throws Exception {
+        // Invalid email format
+        String invalidEmail = "invalid-email";
+        String password = "Password123!";
+
+        mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(invalidEmail, password))))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void authenticateUser_ShouldReturn400BadRequest_WhenRequestEmailIsBlank() throws Exception {
+        String blankEmail = "";
+        String password = "Password123!";
+
+        mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(blankEmail, password))))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void authenticateUser_ShouldReturn400BadRequest_WhenRequestPasswordIsBlank() throws Exception {
+        String email = "user@example.com";
+        String blankPassword = "";
+        mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(email, blankPassword))))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void authenticateUser_ShouldReturn401Unauthorized_WhenCredentialsAreInvalid() throws Exception {
+        // First, create a user
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "loginuser",
+            "loginuser@example.com",
+            "Password123!"
+        );
+
+        mockMvc.perform(post("/api/auth/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(createRequest)))
+            .andExpect(status().isCreated());
+
+        // Now, attempt to login with incorrect password
+        String email = "loginuser@example.com";
+        String wrongPassword = "WrongPassword!";
+        mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(email, wrongPassword))))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void authenticateUser_ShouldReturn200OKAndTokens_WhenCredentialsAreValid() throws Exception {
+        // First, create a user
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "validuser",
+            "validuser@example.com",
+            "Password123!"
+        );
+
+        mockMvc.perform(post("/api/auth/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(createRequest)))
+            .andExpect(status().isCreated());
+
+        // Now, attempt to login with correct credentials
+        String email = "validuser@example.com";
+        String password = "Password123!";
+        String response = mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(email, password))))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        LoginResponse loginResponse = objectMapper.readValue(response, LoginResponse.class);
+        assertNotNull(loginResponse);
+        assertNotNull(loginResponse.accessToken());
+        assertNotNull(loginResponse.refreshToken());
+        assertNotNull(loginResponse.expiration());
+        assertTrue(!loginResponse.accessToken().isEmpty());
+        assertTrue(!loginResponse.refreshToken().isEmpty());
+        assertTrue(!loginResponse.expiration().isEmpty());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn400BadRequest_WhenRequestTokenIsBlank() throws Exception {
+        RefreshTokenRequest request = new RefreshTokenRequest("");
+
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn401Unauthorized_WhenRequestTokenIsInvalid() throws Exception {
+        RefreshTokenRequest request = new RefreshTokenRequest("invalid-token");
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn401Unauthorized_WhenRequestTokenDoesNotHaveClaims() throws Exception {
+        // Create a token without claims
+        String invalidToken = Jwts.builder()
+                                  .signWith(key)
+                                  .compact();
+
+        RefreshTokenRequest request = new RefreshTokenRequest(invalidToken);
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn401Unauthorized_WhenRequestTokenSubjectIsNotNumeric() throws Exception {
+        String invalidToken = jwtUtils.generateRefreshToken("non-numeric-subject", UUID.randomUUID(), Date.from(Instant.now().plusSeconds(60 * 60 * 24 * 7))); // 7 days expiry
+        RefreshTokenRequest request = new RefreshTokenRequest(invalidToken);
+
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn204NoContent_WhenRequestTokenJTIIsNotUUID() throws Exception {
+        String invalidTokenWithNonUUIDJTI = Jwts.builder()
+                                            .subject("1")
+                                            .id("non-uuid-jti")
+                                            .issuedAt(new Date())
+                                            .expiration(Date.from(Instant.now().plusSeconds(60 * 60 * 24 * 7))) // 7 days expiry
+                                            .signWith(key)
+                                            .compact();
+
+        RefreshTokenRequest request = new RefreshTokenRequest(invalidTokenWithNonUUIDJTI);
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn401Unauthorized_WhenRequestTokenIsNotInDatabase() throws Exception {
+        String validTokenNotInDB = jwtUtils.generateRefreshToken("1", UUID.randomUUID(), Date.from(Instant.now().plusSeconds(60 * 60 * 24 * 7))); // 7 days expiry
+        RefreshTokenRequest request = new RefreshTokenRequest(validTokenNotInDB);
+
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn204NoContent_WhenRequestIsValid() throws Exception {
+        // Soon to be implemented: Create a user and a refresh token in the database
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "logoutuser",
+            "logoutuser@example.com",
+            "Password123!"
+        );
+        mockMvc.perform(post("/api/auth/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(createRequest)))
+            .andExpect(status().isCreated());
+
+        // 로그인하여 토큰 발급
+        String email = "logoutuser@example.com";
+        String password = "Password123!";
+        String response = mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(email, password))))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        LoginResponse loginResponse = objectMapper.readValue(response, LoginResponse.class);
+        assertNotNull(loginResponse);
+        assertNotNull(loginResponse.refreshToken());
+        assertTrue(!loginResponse.refreshToken().isEmpty());
+
+        String refreshToken = loginResponse.refreshToken();
+
+        // 로그아웃 요청
+        RefreshTokenRequest request = new RefreshTokenRequest(refreshToken);
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isNoContent());
+
+        // 다시 한 번 로그아웃 요청 - 이미 삭제된 토큰이므로 401 Unauthorized
+        mockMvc.perform(post("/api/auth/logout")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isUnauthorized());
     }
 
     @Test

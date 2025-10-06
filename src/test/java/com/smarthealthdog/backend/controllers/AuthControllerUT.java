@@ -183,6 +183,39 @@ class AuthControllerUT {
         verify(emailService, never()).sendEmailVerification(any());
     }
 
+    // --- /logout Tests ---
+    @Test
+    void logoutUser_ShouldReturn400_OnInvalidInput() throws Exception {
+        // ARRANGE: Assuming validation rejects a blank token
+        RefreshTokenRequest invalidRequest = new RefreshTokenRequest("");
+
+        // ACT & ASSERT
+        mockMvc.perform(post(BASE_URL + "/logout")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(invalidRequest)))
+                .andExpect(status().isBadRequest()); // Expect 400 Bad Request
+
+        // VERIFY: AuthService should not be called
+        verify(authService, never()).invalidateRefreshToken(any());
+    }
+
+    @Test
+    void logoutUser_ShouldReturn204_OnSuccess() throws Exception {
+        // ARRANGE
+        RefreshTokenRequest request = new RefreshTokenRequest("valid.refresh.token");
+        doNothing().when(authService).invalidateRefreshToken("valid.refresh.token");
+
+        // ACT & ASSERT
+        mockMvc.perform(post(BASE_URL + "/logout")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(request)))
+                .andExpect(status().isNoContent()) // Expect 204 No Content
+                .andExpect(content().string("")); // Response body must be empty for 204
+
+        // VERIFY
+        verify(authService, times(1)).invalidateRefreshToken("valid.refresh.token");
+    }
+
     // --- /token/refresh Tests ---
     @Test
     void refreshToken_ShouldReturn200AndNewTokens_OnSuccess() throws Exception {
