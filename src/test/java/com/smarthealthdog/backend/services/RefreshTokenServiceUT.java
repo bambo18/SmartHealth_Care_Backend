@@ -221,6 +221,84 @@ public class RefreshTokenServiceUT {
     }
 
     @Test
+    void getTokenById_ShouldReturnNull_WhenTokenDoesNotExist() {
+        // ARRANGE
+        when(refreshTokenRepository.findById(uuid)).thenReturn(Optional.empty());
+        // ACT
+        RefreshToken token = refreshTokenService.getTokenById(uuid);
+        // ASSERT
+        assertTrue(token == null);
+    }
+
+    @Test
+    void getTokenById_ShouldReturnToken_WhenTokenExists() {
+        // ARRANGE
+        RefreshToken mockRefreshToken = mock(RefreshToken.class);
+        when(refreshTokenRepository.findById(uuid)).thenReturn(Optional.of(mockRefreshToken));
+        // ACT
+        RefreshToken token = refreshTokenService.getTokenById(uuid);
+        // ASSERT
+        assertTrue(token != null && token.equals(mockRefreshToken));
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldThrowException_WhenClaimsAreNull() {
+        // ARRANGE
+        when(jwtUtils.getAllClaimsFromToken(MOCK_REFRESH_TOKEN)).thenReturn(null);
+
+        // ASSERT
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken(MOCK_REFRESH_TOKEN);
+        });
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldThrowException_WhenJTIIsNullOrEmpty() {
+        // ARRANGE
+        when(jwtUtils.getAllClaimsFromToken(MOCK_REFRESH_TOKEN)).thenReturn(mockJws);
+        when(mockJws.getPayload()).thenReturn(mockClaims);
+        when(mockClaims.getId()).thenReturn(null);
+
+        // ACT
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken(MOCK_REFRESH_TOKEN);
+        });
+
+        when(mockClaims.getId()).thenReturn("");
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken(MOCK_REFRESH_TOKEN);
+        });
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldThrowException_WhenJTIIsInvalidUUID() {
+        // ARRANGE
+        when(jwtUtils.getAllClaimsFromToken(MOCK_REFRESH_TOKEN)).thenReturn(mockJws);
+        when(mockJws.getPayload()).thenReturn(mockClaims);
+        when(mockClaims.getId()).thenReturn("invalid-uuid");
+
+        // ACT
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken(MOCK_REFRESH_TOKEN);
+        });
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldReturnUUID_WhenJTIIsValidUUID() {
+        // ARRANGE
+        String validUUID = "00000000-0000-0000-0000-000000000000";
+        when(jwtUtils.getAllClaimsFromToken(MOCK_REFRESH_TOKEN)).thenReturn(mockJws);
+        when(mockJws.getPayload()).thenReturn(mockClaims);
+        when(mockClaims.getId()).thenReturn(validUUID);
+
+        // ACT
+        UUID tokenId = refreshTokenService.getTokenIdFromToken(MOCK_REFRESH_TOKEN);
+
+        // ASSERT
+        assertTrue(tokenId != null && tokenId.equals(UUID.fromString(validUUID)));
+    }
+
+    @Test
     void generateAccessToken_ShouldReturnNewAccessToken_WhenRefreshTokenIsValid() {
         RefreshToken mockRefreshToken = mock(RefreshToken.class);
         when(mockUser.getId()).thenReturn(1234L);

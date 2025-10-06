@@ -11,12 +11,14 @@ import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.LoginResponse;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
+import com.smarthealthdog.backend.exceptions.BadCredentialsException;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,6 +28,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
+import java.util.UUID;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceUT {
@@ -370,6 +373,70 @@ class AuthServiceUT {
         assertEquals("mockAccessToken", response.accessToken());
         assertEquals("mockRefreshToken", response.refreshToken());
         assertEquals(odt.format(formatter), response.expiration());
+    }
+
+    @Test
+    void invalidateRefreshToken_shouldThrowException_whenTokenIsNullOrEmpty() {
+        // ARRANGE
+        String nullToken = null;
+        String emptyToken = "";
+
+        // ACT & ASSERT
+        assertThrows(BadCredentialsException.class, () -> {
+            authService.invalidateRefreshToken(nullToken);
+        });
+
+        assertThrows(BadCredentialsException.class, () -> {
+            authService.invalidateRefreshToken(emptyToken);
+        });
+    }
+
+    @Test
+    void invalidateRefreshToken_shouldThrowException_whenTokenIsInvalid() {
+        // ARRANGE
+        String invalidToken = "invalidToken";
+        doThrow(BadCredentialsException.class)
+            .when(refreshTokenService).validateRefreshToken(invalidToken);
+        
+        // ACT & ASSERT
+        assertThrows(BadCredentialsException.class, () -> {
+            authService.invalidateRefreshToken(invalidToken);
+        });
+    }
+
+    @Test
+    void invalidateRefreshToken_shouldThrowException_whenUserNotFoundFromToken() {
+        // ARRANGE
+        String validToken = "validToken";
+        doNothing().when(refreshTokenService).validateRefreshToken(validToken);
+        when(refreshTokenService.getUserFromToken(validToken)).thenReturn(null);
+        // ACT & ASSERT
+        assertThrows(BadCredentialsException.class, () -> {
+            authService.invalidateRefreshToken(validToken);
+        });
+        verify(refreshTokenService).validateRefreshToken(validToken);
+        verify(refreshTokenService).getUserFromToken(validToken);
+    }
+
+    @Test
+    void invalidateRefreshToken_shouldInvalidateTokenSuccessfully() {
+        // ARRANGE
+        String validToken = "validToken";
+        User mockUser = mock(User.class);
+        doNothing().when(refreshTokenService).validateRefreshToken(validToken);
+        when(refreshTokenService.getUserFromToken(validToken)).thenReturn(mockUser);
+        doNothing().when(refreshTokenCleanupService).deleteUserRefreshTokensIfExpired(mockUser);
+        UUID mockTokenId = UUID.randomUUID();
+        when(refreshTokenService.getTokenIdFromToken(validToken)).thenReturn(mockTokenId);
+        doNothing().when(refreshTokenCleanupService).deleteRefreshTokensById(mockTokenId);
+        // ACT
+        authService.invalidateRefreshToken(validToken);
+        // ASSERT
+        verify(refreshTokenService).validateRefreshToken(validToken);
+        verify(refreshTokenService).getUserFromToken(validToken);
+        verify(refreshTokenCleanupService).deleteUserRefreshTokensIfExpired(mockUser);
+        verify(refreshTokenService).getTokenIdFromToken(validToken);
+        verify(refreshTokenCleanupService).deleteRefreshTokensById(mockTokenId);
     }
 
     @Test

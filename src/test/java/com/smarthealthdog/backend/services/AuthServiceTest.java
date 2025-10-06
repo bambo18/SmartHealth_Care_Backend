@@ -483,6 +483,47 @@ public class AuthServiceTest {
     }
 
     @Test
+    void invalidateRefreshToken_ShouldThrowException_WhenTokenIsNullOrEmpty() {
+        assertThrows(BadCredentialsException.class, () -> {
+            authService.invalidateRefreshToken(null);
+        });
+
+        assertThrows(BadCredentialsException.class, () -> {
+            authService.invalidateRefreshToken("");
+        });
+    }
+
+    @Test
+    void invalidateRefreshToken_ShouldThrowException_WhenTokenIsInvalid() {
+        assertThrows(BadCredentialsException.class, () -> {
+            authService.invalidateRefreshToken("invalid.token.here");
+        });
+    }
+
+    @Test
+    void invalidateRefreshToken_ShouldDeleteToken_WhenTokenIsValid() {
+        // Arrange
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "testuser",
+            "test@example.com",
+            "TestPassword123!"
+        );
+
+        // Act
+        User user = authService.registerUser(createRequest);
+        user.setRole(roleRepository.findByName(RoleEnum.USER).orElseThrow());
+        userRepository.save(user);
+
+        String refreshToken = refreshTokenService.generateRefreshToken(user);
+        assertTrue(refreshToken != null && refreshToken.length() > 0);
+
+        // Assert
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 1);
+        authService.invalidateRefreshToken(refreshToken);
+        assertTrue(refreshTokenRepository.findByUser(user).isEmpty());
+    }
+
+    @Test
     void refreshAccessToken_ShouldThrowException_WhenRefreshTokenIsNullOrEmpty() {
         assertThrows(BadCredentialsException.class, () -> {
             authService.refreshAccessToken(null);

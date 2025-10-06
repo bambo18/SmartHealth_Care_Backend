@@ -1,5 +1,7 @@
 package com.smarthealthdog.backend.services;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -238,6 +240,96 @@ public class RefreshTokenServiceTest {
         assertTrue(newToken != null);
         assertTrue(!newToken.equals(token));
         assertTrue(refreshTokenRepository.findByUser(user).size() == 1);
+    }
+
+    @Test
+    void getTokenById_ShouldReturnNull_WhenTokenIdDoesNotExist() {
+        UUID randomUuid = UUID.randomUUID();
+        RefreshToken token = refreshTokenService.getTokenById(randomUuid);
+        assertTrue(token == null);
+    }
+
+    @Test
+    void getTokenById_ShouldReturnToken_WhenTokenIdExists() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+
+        User user = userOpt.get();
+        String token = refreshTokenService.generateRefreshToken(user);
+        refreshTokenService.validateRefreshToken(token);
+
+        UUID tokenId = refreshTokenService.getTokenIdFromToken(token);
+        assertNotNull(tokenId);
+
+        RefreshToken foundToken = refreshTokenService.getTokenById(tokenId);
+        assertNotNull(foundToken);
+        assertEquals(tokenId, foundToken.getId());
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldThrowException_WhenTokenIsNullOrEmpty() {
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken(null);
+        });
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken("");
+        });
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldThrowException_WhenTokenIsInvalid() {
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken("invalid.token.here");
+        });
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldThrowException_WhenTokenHasEmptyClaims() {
+        String emptyClaimsToken = Jwts.builder()
+                                      .signWith(key)
+                                      .compact();
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken(emptyClaimsToken);
+        });
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldThrowException_WhenTokenIdIsMissing() {
+        String tokenWithoutId = Jwts.builder()
+                                    .subject("1234")
+                                    .signWith(key)
+                                    .compact();
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken(tokenWithoutId);
+        });
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldThrowException_WhenTokenIdIsNotUUID() {
+        String tokenWithInvalidId = Jwts.builder()
+                                        .id("not-a-uuid")
+                                        .subject("1234")
+                                        .signWith(key)
+                                        .compact();
+
+        assertThrows(BadCredentialsException.class, () -> {
+            refreshTokenService.getTokenIdFromToken(tokenWithInvalidId);
+        });
+    }
+
+    @Test
+    void getTokenIdFromToken_ShouldReturnTokenId_WhenTokenIsValid() {
+        String validToken = Jwts.builder()
+                                   .id(UUID.randomUUID().toString())
+                                   .subject("1234")
+                                   .signWith(key)
+                                   .compact();
+
+        UUID tokenId = refreshTokenService.getTokenIdFromToken(validToken);
+        assertNotNull(tokenId);
     }
 
     @Test
