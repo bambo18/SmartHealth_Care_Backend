@@ -185,4 +185,192 @@ public class RefreshTokenCleanupServiceTest {
         refreshTokenCleanupService.deleteUserRefreshTokensIfExpired(user);
         assertTrue(refreshTokenRepository.findByUser(user).isEmpty());
     }
+
+    // Test enforcing max refresh token count
+    @Test
+    void enforceMaxRefreshTokenCount_ShouldRemoveExcessTokens_WhenUserHasMoreThanMaxTokens() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+
+        User user = userOpt.get();
+        ReflectionTestUtils.setField(
+            refreshTokenCleanupService, 
+            "maxRefreshTokenCount", 
+            3 // Set max count to 3 for testing
+        );
+
+        // Generate 5 tokens
+        for (int i = 0; i < 5; i++) {
+            String token = refreshTokenService.generateRefreshToken(user);
+            refreshTokenService.validateRefreshToken(token);
+        }
+
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 5);
+
+        refreshTokenCleanupService.enforceMaxRefreshTokenCount(user);
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 3);
+    }
+
+    @Test
+    void enforceMaxRefreshTokenCount_ShouldNotRemoveTokens_WhenUserHasLessThanOrEqualToMaxTokens() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+        User user = userOpt.get();
+
+        ReflectionTestUtils.setField(
+            refreshTokenCleanupService, 
+            "maxRefreshTokenCount", 
+            5 // Set max count to 5 for testing
+        );
+
+        // Generate 3 tokens
+        for (int i = 0; i < 3; i++) {
+            String token = refreshTokenService.generateRefreshToken(user);
+            refreshTokenService.validateRefreshToken(token);
+        }
+
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 3);
+        refreshTokenCleanupService.enforceMaxRefreshTokenCount(user);
+
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 3);
+    }
+
+    @Test
+    void enforceMaxRefreshTokenCount_ShouldDoNothing_WhenMaxCountIsNullOrNonPositive() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+        User user = userOpt.get();
+        ReflectionTestUtils.setField(
+            refreshTokenCleanupService, 
+            "maxRefreshTokenCount", 
+            null // Set max count to null
+        );
+
+        // Generate 3 tokens
+        for (int i = 0; i < 3; i++) {
+            String token = refreshTokenService.generateRefreshToken(user);
+            refreshTokenService.validateRefreshToken(token);
+        }
+
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 3);
+        refreshTokenCleanupService.enforceMaxRefreshTokenCount(user);
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 3);
+    }
+
+    @Test
+    void enforceMaxRefreshTokenCount_ShouldHandleNoTokensGracefully() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+
+        User user = userOpt.get();
+        ReflectionTestUtils.setField(
+            refreshTokenCleanupService, 
+            "maxRefreshTokenCount", 
+            null // Set max count to null
+        );
+
+        refreshTokenCleanupService.enforceMaxRefreshTokenCount(user);
+        assertTrue(refreshTokenRepository.findByUser(user).isEmpty());
+    }
+
+    @Test
+    void enforceMaxRefreshTokenCount_ShouldHandleExactlyMaxTokensGracefully() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+
+        User user = userOpt.get();
+        ReflectionTestUtils.setField(
+            refreshTokenCleanupService, 
+            "maxRefreshTokenCount", 
+            3 // Set max count to 3 for testing
+        );
+
+        // Generate exactly 3 tokens
+        for (int i = 0; i < 3; i++) {
+            String token = refreshTokenService.generateRefreshToken(user);
+            refreshTokenService.validateRefreshToken(token);
+        }
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 3);
+        refreshTokenCleanupService.enforceMaxRefreshTokenCount(user);
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 3);
+    }
+
+    @Test
+    void removeExpiredTokens_ShouldRemoveOnlyExpiredTokens() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+
+        Instant now = Instant.now().minus(8, ChronoUnit.DAYS);
+        Date issuedAt = Date.from(now);
+
+        // Create three expired tokens and two valid tokens
+        User user = userOpt.get();
+        for (int i = 0; i < 3; i++) {
+            UUID jti = UUID.randomUUID();
+            jwtUtils.generateRefreshToken(user.getId().toString(), jti, issuedAt);
+
+            RefreshToken refreshToken = new RefreshToken();
+            refreshToken.setId(jti);
+            refreshToken.setUser(user);
+            refreshToken.setExpiresAt(now.plus(7, ChronoUnit.DAYS));
+            refreshTokenRepository.save(refreshToken);
+        }
+
+        for (int i = 0; i < 2; i++) {
+            String token = refreshTokenService.generateRefreshToken(user);
+            refreshTokenService.validateRefreshToken(token);
+        }
+
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 5);
+
+        refreshTokenCleanupService.removeExpiredTokens();
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 2);
+    }
+
+    @Test
+    void removeExpiredTokens_ShouldHandleNoTokensGracefully() {
+        refreshTokenCleanupService.removeExpiredTokens();
+        assertTrue(refreshTokenRepository.findAll().isEmpty());
+    }
+
+    @Test
+    void removeExpiredTokens_ShouldHandleAllTokensValidGracefully() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+
+        User user = userOpt.get();
+        // Create three valid tokens
+        for (int i = 0; i < 3; i++) {
+            String token = refreshTokenService.generateRefreshToken(user);
+            refreshTokenService.validateRefreshToken(token);
+        }
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 3);
+        refreshTokenCleanupService.removeExpiredTokens();
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 3);
+    }
+
+    @Test
+    void removeExpiredTokens_ShouldHandleAllTokensExpiredGracefully() {
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+
+        Instant now = Instant.now().minus(8, ChronoUnit.DAYS);
+        Date issuedAt = Date.from(now);
+        User user = userOpt.get();
+        // Create three expired tokens
+        for (int i = 0; i < 3; i++) {
+            UUID jti = UUID.randomUUID();
+            jwtUtils.generateRefreshToken(user.getId().toString(), jti, issuedAt);
+
+            RefreshToken refreshToken = new RefreshToken();
+            refreshToken.setId(jti);
+            refreshToken.setUser(user);
+            refreshToken.setExpiresAt(now.plus(7, ChronoUnit.DAYS));
+            refreshTokenRepository.save(refreshToken);
+        }
+
+        assertTrue(refreshTokenRepository.findByUser(user).size() == 3);
+        refreshTokenCleanupService.removeExpiredTokens();
+        assertTrue(refreshTokenRepository.findByUser(user).isEmpty());
+    }
 }

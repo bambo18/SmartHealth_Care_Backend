@@ -74,5 +74,14 @@ public class RefreshTokenCleanupServiceUT {
         refreshTokenCleanupService.enforceMaxRefreshTokenCount(mockUser);
         verify(refreshTokenRepository).deleteAllExpiredSinceByUser(any(Instant.class), eq(mockUser));
     }
+
+    @Test
+    void removeExpiredTokens_ShouldInvokeRepositoryMethod() {
+        when(refreshTokenRepository.deleteAllExpiredSince(any(Instant.class))).thenReturn(0);
+
+        refreshTokenCleanupService.removeExpiredTokens();
+
+        verify(refreshTokenRepository).deleteAllExpiredSince(any(Instant.class));
+    }
 }
         
