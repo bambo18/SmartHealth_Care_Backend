@@ -563,7 +563,13 @@ public class RefreshTokenServiceTest {
         assertTrue(oldClaims.getPayload().getSubject().equals(newClaims.getPayload().getSubject()));
         assertTrue(!oldClaims.getPayload().getId().equals(newClaims.getPayload().getId()));
         assertTrue(oldClaims.getPayload().getIssuedAt() != newClaims.getPayload().getIssuedAt());
-        assertTrue(newClaims.getPayload().getExpiration() == newClaims.getPayload().getExpiration());
+
+        // 새로운 토큰 생성 시, 만료 시간에 엄청 미세한 차이가 발생함
+        // 시간 차이가 1초 미만인지 확인
+        long timeDiff = Math.abs(newClaims.getPayload().getExpiration().getTime() -
+                                  oldClaims.getPayload().getExpiration().getTime());
+
+        assertTrue(timeDiff < 1000, "Expiration time difference is " + timeDiff + "ms");
     }
 
     @Test
