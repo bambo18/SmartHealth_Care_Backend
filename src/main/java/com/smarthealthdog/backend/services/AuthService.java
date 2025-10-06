@@ -2,6 +2,7 @@ package com.smarthealthdog.backend.services;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -71,6 +72,33 @@ public class AuthService {
         refreshTokenCleanupService.enforceMaxRefreshTokenCount(user);
 
         return new LoginResponse(accessToken, refreshToken, accessExpiration);
+    }
+
+    /**
+     * 로그아웃 시 리프레시 토큰 무효화
+     * @param refreshToken
+     * @return
+     */
+    @Transactional
+    public void invalidateRefreshToken(String refreshToken) {
+        if (refreshToken == null || refreshToken.isEmpty()) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        // 리프레시 토큰이 유효한지 확인
+        refreshTokenService.validateRefreshToken(refreshToken);
+
+        User user = refreshTokenService.getUserFromToken(refreshToken);
+        if (user == null) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        // 만료된 리프레시 토큰 삭제
+        refreshTokenCleanupService.deleteUserRefreshTokensIfExpired(user);
+
+        // 해당 리프레시 토큰 삭제
+        UUID tokenId = refreshTokenService.getTokenIdFromToken(refreshToken);
+        refreshTokenCleanupService.deleteRefreshTokensById(tokenId);
     }
 
     /**

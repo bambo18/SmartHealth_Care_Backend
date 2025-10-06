@@ -221,6 +221,34 @@ public class RefreshTokenService {
     }
 
     /**
+     * 토큰에서 토큰 ID 추출
+     * @param token
+     * @return 토큰 ID(UUID 형식), 토큰이 유효하지 않을 경우 null 반환
+     * @throws BadCredentialsException 토큰이 유효하지 않거나, 토큰 ID가 UUID 형식이 아닐 경우 발생
+     */
+    public UUID getTokenIdFromToken(String token) throws BadCredentialsException {
+        if (token == null || token.isEmpty()) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        Jws<Claims> claims = getClaimsFromToken(token);
+        if (claims == null) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        String tokenId = claims.getPayload().getId();
+        if (tokenId == null || tokenId.isEmpty()) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+
+        try {
+            return UUID.fromString(tokenId);
+        } catch (IllegalArgumentException e) {
+            throw new BadCredentialsException(ErrorCode.INVALID_JWT);
+        }
+    }
+
+    /**
      * 토큰에서 유저 ID 추출 후 유저 객체 조회
      * @param token
      * @return 유저 객체, 토큰이 유효하지 않거나 유저를 찾을 수 없는 경우 null 반환
@@ -238,6 +266,15 @@ public class RefreshTokenService {
 
         return userService.getUserById(Long.parseLong(userId))
                           .orElse(null);
+    }
+
+    /**
+     * 토큰에서 토큰 ID 추출
+     * @param token
+     * @return 토큰 ID(UUID 형식), 토큰이 유효하지 않을 경우 null 반환
+     */
+    public RefreshToken getTokenById(UUID tokenId) {
+        return refreshTokenRepository.findById(tokenId).orElse(null);
     }
 
     /**
