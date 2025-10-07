@@ -70,7 +70,7 @@ public class UserServiceUT {
         when(passwordValidator.isValid(anyString())).thenReturn(true); 
 
         // 4. Mock the role service to return a non-null Role object
-        when(roleService.getUnverifiedUserRole()).thenReturn(new Role()); 
+        when(roleService.getUserRole()).thenReturn(new Role()); 
         
         // 5. Mock the userRepository.save() call (to return the created user)
         // This is often good practice to ensure the service proceeds to the end.

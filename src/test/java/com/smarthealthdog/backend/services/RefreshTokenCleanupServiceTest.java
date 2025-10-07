@@ -19,9 +19,11 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.smarthealthdog.backend.domain.EmailVerification;
 import com.smarthealthdog.backend.domain.Permission;
 import com.smarthealthdog.backend.domain.PermissionEnum;
 import com.smarthealthdog.backend.domain.RefreshToken;
@@ -29,6 +31,7 @@ import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
+import com.smarthealthdog.backend.repositories.EmailVerificationRepository;
 import com.smarthealthdog.backend.repositories.PermissionRepository;
 import com.smarthealthdog.backend.repositories.RefreshTokenRepository;
 import com.smarthealthdog.backend.repositories.RoleRepository;
@@ -54,6 +57,12 @@ public class RefreshTokenCleanupServiceTest {
     private UserService userService;
 
     @Autowired
+    private EmailVerificationService emailVerificationService;
+
+    @Autowired
+    private EmailVerificationRepository emailVerificationRepository;
+
+    @Autowired
     private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
@@ -71,28 +80,54 @@ public class RefreshTokenCleanupServiceTest {
     @Autowired
     private PermissionRepository permissionRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     SecretKey key;
 
     @BeforeAll
     void setUp() {
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "emailVerificationSecret",
+            "test-email-verification-secret"
+        );
+
         Permission loginPermission = new Permission();
         loginPermission.setName(PermissionEnum.CAN_LOGIN);
         loginPermission.setDescription("Can log in");
         permissionRepository.save(loginPermission);
 
-        Role unverifiedRole = new Role();
-        unverifiedRole.setName(RoleEnum.UNVERIFIED_USER);
-        unverifiedRole.setDescription("Unverified User");
-        unverifiedRole.setPermissions(Set.of(loginPermission));
-        roleRepository.save(unverifiedRole);
+        Role userRole = new Role();
+        userRole.setName(RoleEnum.USER);
+        userRole.setDescription("Verified User");
+        userRole.setPermissions(Set.of(loginPermission));
+        roleRepository.save(userRole);
+
+        // Create an email verification entry
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("testuser@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationRequestedAt(Instant.now())
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
 
         // Create a new user before each test
         UserCreateRequest request = new UserCreateRequest(
             "testuser",
             "testuser@example.com",
-            "Password123!"
+            "Password123!",
+            token
         );
-        User user = authService.registerUser(request);
+        authService.registerUser(request);
+
+        Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+        User user = userOpt.get();
 
         // Ensure the user is created successfully
         assertTrue(user != null);

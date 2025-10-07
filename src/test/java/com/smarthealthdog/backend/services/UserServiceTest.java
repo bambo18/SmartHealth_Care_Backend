@@ -92,10 +92,10 @@ public class UserServiceTest {
         String password = "ValidPass123!";
 
         Role unverifiedRole = new Role();
-        unverifiedRole.setName(RoleEnum.UNVERIFIED_USER);
+        unverifiedRole.setName(RoleEnum.USER);
 
         when(userRepository.existsByEmail(email)).thenReturn(false);
-        when(roleRepository.findByName(RoleEnum.UNVERIFIED_USER)).thenReturn(Optional.of(unverifiedRole));
+        when(roleRepository.findByName(RoleEnum.USER)).thenReturn(Optional.of(unverifiedRole));
 
         // Act
         User user = userService.createUser(nickname, email, password);
@@ -104,7 +104,7 @@ public class UserServiceTest {
         assertNotNull(user);
         assertEquals(nickname, user.getNickname());
         assertEquals(email, user.getEmail());
-        assertTrue(user.getRole().getName() == RoleEnum.UNVERIFIED_USER);
+        assertTrue(user.getRole().getName() == RoleEnum.USER);
         // Password should be hashed, so it should not match the raw password
 
         assertTrue(user.getPassword() != null);

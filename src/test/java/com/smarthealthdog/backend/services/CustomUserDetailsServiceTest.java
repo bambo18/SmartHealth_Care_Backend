@@ -3,6 +3,7 @@ package com.smarthealthdog.backend.services;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Instant;
 import java.util.Set;
 
 import org.junit.jupiter.api.AfterAll;
@@ -13,9 +14,12 @@ import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.smarthealthdog.backend.domain.EmailVerification;
 import com.smarthealthdog.backend.domain.Permission;
 import com.smarthealthdog.backend.domain.PermissionEnum;
 import com.smarthealthdog.backend.domain.Role;
@@ -23,6 +27,7 @@ import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
 import com.smarthealthdog.backend.exceptions.BadCredentialsException;
+import com.smarthealthdog.backend.repositories.EmailVerificationRepository;
 import com.smarthealthdog.backend.repositories.PermissionRepository;
 import com.smarthealthdog.backend.repositories.RoleRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
@@ -36,6 +41,12 @@ public class CustomUserDetailsServiceTest {
     private CustomUserDetailsService customUserDetailsService;
 
     @Autowired
+    private EmailVerificationService emailVerificationService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
     private AuthService authService;
 
     @Autowired
@@ -45,10 +56,19 @@ public class CustomUserDetailsServiceTest {
     private PermissionRepository permissionRepository;
 
     @Autowired
+    private EmailVerificationRepository emailVerificationRepository;
+
+    @Autowired
     private UserRepository userRepository;
 
     @BeforeAll
     void setup() {
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "emailVerificationSecret",
+            "test-email-verification-secret"
+        );
+
         Permission loginPermission = new Permission();
         loginPermission.setName(PermissionEnum.CAN_LOGIN);
         loginPermission.setDescription("Can login to the system");
@@ -60,22 +80,32 @@ public class CustomUserDetailsServiceTest {
         permissionRepository.save(startWalkPermission);
 
         Role role = new Role();
-        role.setName(RoleEnum.UNVERIFIED_USER);
-        role.setDescription("Unverified User");
+        role.setName(RoleEnum.USER);
+        role.setDescription("User");
         role.setPermissions(Set.of(loginPermission, startWalkPermission));
 
         roleRepository.save(role);
 
+        Instant now = Instant.now();
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("test@test.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationRequestedAt(now)
+            .emailVerificationExpiry(now.plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
+
         UserCreateRequest userRequest = new UserCreateRequest(
             "testuser",
             "test@test.com",
-            "Test@1234"
+            "Test@1234!",
+            token
         );
 
-        User user = authService.registerUser(userRequest);
-        if (user == null) {
-            throw new RuntimeException("Failed to create test user");
-        }
+        authService.registerUser(userRequest);
 
         User loadUser = userRepository.findByEmail("test@test.com").orElseThrow();
         if (loadUser == null) {
@@ -88,6 +118,7 @@ public class CustomUserDetailsServiceTest {
         userRepository.deleteAll();
         roleRepository.deleteAll();
         permissionRepository.deleteAll();
+        emailVerificationRepository.deleteAll();
     }
 
     @Test
@@ -115,7 +146,7 @@ public class CustomUserDetailsServiceTest {
 
         assertTrue(sameUser1.getUsername().equals(user.getId().toString()));
 
-        Role role = roleRepository.findByName(RoleEnum.UNVERIFIED_USER).orElseThrow();
+        Role role = roleRepository.findByName(RoleEnum.USER).orElseThrow();
         Set<Permission> permission = role.getPermissions();
 
         assertTrue(sameUser1.getAuthorities().size() > 0, "Expected some authorities, but got none");
