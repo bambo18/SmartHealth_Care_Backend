@@ -2,9 +2,10 @@ package com.smarthealthdog.backend.controllers;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
@@ -24,24 +25,29 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smarthealthdog.backend.domain.EmailVerification;
 import com.smarthealthdog.backend.domain.RefreshToken;
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
+import com.smarthealthdog.backend.dto.EmailVerificationCodeRequest;
 import com.smarthealthdog.backend.dto.LoginResponse;
 import com.smarthealthdog.backend.dto.RefreshTokenRequest;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
-import com.smarthealthdog.backend.dto.UserEmailVerifyRequest;
+import com.smarthealthdog.backend.repositories.EmailVerificationRepository;
 import com.smarthealthdog.backend.repositories.RefreshTokenRepository;
 import com.smarthealthdog.backend.repositories.RoleRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.services.EmailService;
+import com.smarthealthdog.backend.services.EmailVerificationService;
+import com.smarthealthdog.backend.services.UserService;
 import com.smarthealthdog.backend.utils.JWTUtils;
 
 import io.jsonwebtoken.Jwts;
@@ -60,6 +66,9 @@ public class AuthControllerTest {
     private ObjectMapper objectMapper;
 
     @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
     private RoleRepository roleRepository;
 
     @Autowired
@@ -69,10 +78,20 @@ public class AuthControllerTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
+    private EmailVerificationRepository emailVerificationRepository;
+
+    @Autowired
     private JWTUtils jwtUtils;
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private EmailVerificationService emailVerificationService;
 
     @MockitoBean
     private EmailService emailService;
+
 
     SecretKey key;
 
@@ -82,7 +101,7 @@ public class AuthControllerTest {
 
     @BeforeAll
     void setupAll() {
-        doNothing().when(emailService).sendEmailVerification(org.mockito.ArgumentMatchers.any(User.class));
+        doNothing().when(emailService).sendEmailVerification(anyString(), anyString(), any(EmailVerification.class));
 
         // Runs once before all tests
         Role unverifiedRole = new Role();
@@ -106,166 +125,59 @@ public class AuthControllerTest {
             "key",
             Keys.hmacShaKeyFor(key.getEncoded())
         );
+
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "emailVerificationExpiryMinutes",
+            15
+        );
+
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "emailVerificationTriesCount",
+            5
+        );
+
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "emailVerificationTriesDurationDays",
+            1
+        );
+
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "emailVerificationFailureAttempts",
+            5
+        );
+
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "emailVerificationLockDurationMinutes",
+            30
+        );
+
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "emailVerificationSecret",
+            "test-email-verification-secret"
+        );
     }
 
     @AfterEach
     void tearDown() {
         // Runs after each test
         refreshTokenRepository.deleteAll();
+        emailVerificationRepository.deleteAll();
         userRepository.deleteAll();
     }
 
     @AfterAll
     void tearDownAll() {
         // Runs once after all tests
+        emailVerificationRepository.deleteAll();
         refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
         roleRepository.deleteAll();
-    }
-
-    @Test
-    void createUser_ShouldReturn400BadRequest_WhenRequestPasswordIsInvalid() throws Exception {
-        UserCreateRequest request = new UserCreateRequest(
-            "testuser",
-            "testuser@example.com",
-            "password123"
-        );
-
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void createUser_ShouldReturn400BadRequest_WhenRequestEmailIsInvalid() throws Exception {
-        UserCreateRequest request = new UserCreateRequest(
-            "testuser",
-            "invalid-email",
-            "Password123!"
-        );
-
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void createUser_ShouldReturn400BadRequest_WhenRequestNicknameIsBlank() throws Exception {
-        UserCreateRequest request = new UserCreateRequest(
-            "",
-            "testuser@example.com",
-            "Password123!"
-        );
-
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void createUser_ShouldReturn400BadRequest_WhenRequestNicknameIsTooShort() throws Exception {
-        UserCreateRequest request = new UserCreateRequest(
-            "aa", // Assuming min length is 3
-            "testuser@example.com",
-            "Password123!"
-        );
-
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void createUser_ShouldReturn400BadRequest_WhenRequestNicknameIsTooLong() throws Exception {
-        UserCreateRequest request = new UserCreateRequest(
-            "a".repeat(129), // Assuming max length is 128
-            "testuser@example.com",
-            "Password123!"
-        );
-
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void createUser_ShouldReturn400BadRequest_WhenRequestEmailIsBlank() throws Exception {
-        UserCreateRequest request = new UserCreateRequest(
-            "testuser",
-            "",
-            "Password123!"
-        );
-
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void createUser_ShouldReturn201Created_WhenRequestIsValid() throws Exception {
-        UserCreateRequest request = new UserCreateRequest(
-            "testuser",
-            "testuser@example.com",
-            "Password123!"
-        );
-
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
-            .andExpect(status().isCreated());
-    }
-
-    @Test
-    void verifyEmail_ShouldReturn204NoContent_WhenRequestIsValid() throws Exception {
-        // First, create a user to get a valid email verification token
-        UserCreateRequest createRequest = new UserCreateRequest(
-            "verifyuser",
-            "verifyuser@example.com",
-            "Password123!"
-        );
-
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(createRequest)))
-            .andExpect(status().isCreated());
-
-        // 사용자 조회
-        Optional<User> userOpt = userRepository.findByEmail("verifyuser@example.com");
-        assertTrue(userOpt.isPresent());
-        User user = userOpt.get();
-
-        assertTrue(user.getRole().getName().equals(RoleEnum.UNVERIFIED_USER));
-
-        // 이메일 서비스를 모킹했기 때문에 토큰이 설정되지 않음
-        // 수동으로 토큰과 만료 시간을 설정
-        user.setEmailVerificationFailCount(0);
-        user.setEmailVerificationToken("000000");
-        user.setEmailVerificationExpiry(Instant.now().plusSeconds(60 * 15)); // 15 minutes from now
-        userRepository.save(user);
-        userRepository.flush();
-
-        UserEmailVerifyRequest request = new UserEmailVerifyRequest(
-            "verifyuser@example.com",
-            "000000"
-        );
-
-        mockMvc.perform(post("/api/auth/register/verify-email")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(toJson(request)))
-                .andExpect(content().string(""))
-                .andExpect(status().isNoContent());
-
-        // Verify that the user's role has been updated to USER
-        userOpt = userRepository.findByEmail("verifyuser@example.com");
-        assertTrue(userOpt.isPresent());
-        user = userOpt.get();
-        assertTrue(user.getRole().getName().equals(RoleEnum.USER));
     }
 
     @Test
@@ -303,11 +215,22 @@ public class AuthControllerTest {
 
     @Test
     void authenticateUser_ShouldReturn401Unauthorized_WhenCredentialsAreInvalid() throws Exception {
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("loginuser@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
+
         // First, create a user
         UserCreateRequest createRequest = new UserCreateRequest(
             "loginuser",
             "loginuser@example.com",
-            "Password123!"
+            "Password123!",
+            token
         );
 
         mockMvc.perform(post("/api/auth/register")
@@ -326,11 +249,22 @@ public class AuthControllerTest {
 
     @Test
     void authenticateUser_ShouldReturn200OKAndTokens_WhenCredentialsAreValid() throws Exception {
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("validuser@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
+
         // First, create a user
         UserCreateRequest createRequest = new UserCreateRequest(
             "validuser",
             "validuser@example.com",
-            "Password123!"
+            "Password123!",
+            token
         );
 
         mockMvc.perform(post("/api/auth/register")
@@ -404,7 +338,7 @@ public class AuthControllerTest {
     }
 
     @Test
-    void logoutUser_ShouldReturn204NoContent_WhenRequestTokenJTIIsNotUUID() throws Exception {
+    void logoutUser_ShouldReturn401Unauthorized_WhenRequestTokenJTIIsNotUUID() throws Exception {
         String invalidTokenWithNonUUIDJTI = Jwts.builder()
                                             .subject("1")
                                             .id("non-uuid-jti")
@@ -433,11 +367,22 @@ public class AuthControllerTest {
 
     @Test
     void logoutUser_ShouldReturn204NoContent_WhenRequestIsValid() throws Exception {
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret"); 
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("logoutuser@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
+
         // Soon to be implemented: Create a user and a refresh token in the database
         UserCreateRequest createRequest = new UserCreateRequest(
             "logoutuser",
             "logoutuser@example.com",
-            "Password123!"
+            "Password123!",
+            token
         );
         mockMvc.perform(post("/api/auth/register")
             .contentType(MediaType.APPLICATION_JSON)
@@ -477,282 +422,51 @@ public class AuthControllerTest {
     }
 
     @Test
-    void verifyEmail_ShouldReturn400BadRequest_WhenRequestEmailIsInvalid() throws Exception {
-        UserEmailVerifyRequest request = new UserEmailVerifyRequest(
-            "invalid-email",
-            "000000"
-        );
+    void sendEmailVerification_ShouldReturn400BadRequest_WhenRequestEmailIsInvalid() throws Exception {
+        // Invalid email format
+        EmailVerificationCodeRequest request = new EmailVerificationCodeRequest("invalid-email");
 
-        mockMvc.perform(post("/api/auth/register/verify-email")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void verifyEmail_ShouldReturn400BadRequest_WhenRequestEmailIsBlank() throws Exception {
-        UserEmailVerifyRequest request = new UserEmailVerifyRequest(
-            "",
-            "000000"
-        );
-
-        mockMvc.perform(post("/api/auth/register/verify-email")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void verifyEmail_ShouldReturn400BadRequest_WhenRequestTokenIsBlank() throws Exception {
-        UserEmailVerifyRequest request = new UserEmailVerifyRequest(
-            "differentUser@example.com",
-            ""
-        );
-
-        mockMvc.perform(post("/api/auth/register/verify-email")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void verifyEmail_ShouldReturn400BadRequest_WhenTokenLengthIsNotSix() throws Exception {
-        UserEmailVerifyRequest request = new UserEmailVerifyRequest(
-            "differentUser@example.com",
-            "12345"
-        );
-
-        mockMvc.perform(post("/api/auth/register/verify-email")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void verifyEmail_ShouldReturn400BadRequest_WhenUserIsNotFound() throws Exception {
-        UserCreateRequest createRequest = new UserCreateRequest(
-            "nonexistentuser",
-            "nonexistent@example.com",
-            "Password123!"
-        );
-
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(createRequest)))
-            .andExpect(status().isCreated());
-
-        UserEmailVerifyRequest request = new UserEmailVerifyRequest(
-            "differentUser@example.com",
-            "000000"
-        );
-
-        mockMvc.perform(post("/api/auth/register/verify-email")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void verifyEmail_ShouldReturn400BadRequest_WhenEmailVerificationFailCountExceedsLimit() throws Exception {
-        UserCreateRequest createRequest = new UserCreateRequest(
-            "nonexistentuser",
-            "nonexistent@example.com",
-            "Password123!"
-        );
-
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(createRequest)))
-            .andExpect(status().isCreated());
-
-        // 이메일 서비스를 모킹했기 때문에 토큰이 설정되지 않음
-        // 수동으로 토큰과 만료 시간을 설정
-        Optional<User> userOpt = userRepository.findByEmail("nonexistent@example.com");
-        assertTrue(userOpt.isPresent());
-        User user = userOpt.get();
-        user.setEmailVerificationFailCount(5); // Exceed the limit
-        user.setEmailVerificationToken("000000");
-        user.setEmailVerificationExpiry(Instant.now().plusSeconds(60 * 15)); //
-
-        userRepository.save(user);
-        userRepository.flush();
-
-        UserEmailVerifyRequest request = new UserEmailVerifyRequest(
-            "nonexistent@example.com",
-            "000000"
-        );
-
-        mockMvc.perform(post("/api/auth/register/verify-email")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void verifyEmail_ShouldReturn400BadRequest_WhenEmailVerificationTokenIsExpired() throws Exception {
-        UserCreateRequest createRequest = new UserCreateRequest(
-            "nonexistentuser",
-            "nonexistent@example.com",
-            "Password123!"
-        );
-
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(createRequest)))
-            .andExpect(status().isCreated());
-
-        // 이메일 서비스를 모킹했기 때문에 토큰이 설정되지 않음
-        // 수동으로 토큰과 만료 시간을 설정
-        Optional<User> userOpt = userRepository.findByEmail("nonexistent@example.com");
-        assertTrue(userOpt.isPresent());
-        User user = userOpt.get();
-        user.setEmailVerificationToken("000000");
-        user.setEmailVerificationExpiry(Instant.now().minusSeconds(60 * 15)); // 15 minutes ago
-        userRepository.save(user);
-        userRepository.flush();
-
-        UserEmailVerifyRequest request = new UserEmailVerifyRequest(
-            "nonexistent@example.com",
-            "000000"
-        );
-
-        mockMvc.perform(post("/api/auth/register/verify-email")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void verifyEmail_ShouldReturn400BadRequest_WhenUserIsAlreadyVerified() throws Exception {
-        UserCreateRequest createRequest = new UserCreateRequest(
-            "nonexistentuser",
-            "nonexistent@example.com",
-            "Password123!"
-        );
-        
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(createRequest)))
-            .andExpect(status().isCreated());
-
-        // 이메일 서비스를 모킹했기 때문에 토큰이 설정되지 않음
-        // 수동으로 토큰과 만료 시간을 설정
-        Optional<User> userOpt = userRepository.findByEmail("nonexistent@example.com");
-        assertTrue(userOpt.isPresent());
-        User user = userOpt.get();
-        user.setEmailVerificationFailCount(0);
-        user.setEmailVerificationToken("000000");
-        user.setEmailVerificationExpiry(Instant.now().plusSeconds(60 * 15)); // 15 minutes from now
-        user.setRole(roleRepository.findByName(RoleEnum.USER).get()); // Set role to USER (already verified)
-        userRepository.save(user);
-        userRepository.flush();
-
-        UserEmailVerifyRequest request = new UserEmailVerifyRequest(
-            "nonexistent@example.com",
-            "000000"
-        );
-        mockMvc.perform(post("/api/auth/register/verify-email")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void verifyEmail_ShouldReturn400BadRequest_WhenRequestTokenIsIncorrect() throws Exception {
-        UserCreateRequest createRequest = new UserCreateRequest(
-            "nonexistentuser",
-            "nonexistent@example.com",
-            "Password123!"
-        );
-
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(createRequest)))
-            .andExpect(status().isCreated());
-
-        // 이메일 서비스를 모킹했기 때문에 토큰이 설정되지 않음
-        // 수동으로 토큰과 만료 시간을 설정
-        Optional<User> userOpt = userRepository.findByEmail("nonexistent@example.com");
-        assertTrue(userOpt.isPresent());
-        User user = userOpt.get();
-        user.setEmailVerificationFailCount(0);
-        user.setEmailVerificationToken("000000");
-        user.setEmailVerificationExpiry(Instant.now().plusSeconds(60 * 15)); // 15 minutes from now
-        userRepository.save(user);
-        userRepository.flush();
-
-        UserEmailVerifyRequest request = new UserEmailVerifyRequest(
-            "nonexistent@example.com",
-            "000001"
-        );
-
-        mockMvc.perform(post("/api/auth/register/verify-email")
+        mockMvc.perform(post("/api/auth/register/send-email-verification")
             .contentType(MediaType.APPLICATION_JSON)
             .content(toJson(request)))
             .andExpect(status().isBadRequest());
 
-        // Verify that the email verification fail count has been incremented
-        userOpt = userRepository.findByEmail("nonexistent@example.com");
-        assertTrue(userOpt.isPresent());
-        user = userOpt.get();
-        assertTrue(user.getEmailVerificationFailCount() == 1);
-
-        // 한 번 더 틀리기 - 2회
-        mockMvc.perform(post("/api/auth/register/verify-email")
+        // Blank email
+        EmailVerificationCodeRequest blankEmailRequest = new EmailVerificationCodeRequest("");
+        mockMvc.perform(post("/api/auth/register/send-email-verification")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(request)))
+            .content(toJson(blankEmailRequest)))
             .andExpect(status().isBadRequest());
-
-        userOpt = userRepository.findByEmail("nonexistent@example.com");
-        assertTrue(userOpt.isPresent());
-        user = userOpt.get();
-        assertTrue(user.getEmailVerificationFailCount() == 2);
     }
 
     @Test
-    void activateUser_ShouldThrowException_WhenUserIsAlreadyActive() {
-        // This test is effectively covered in the verifyEmail_ShouldReturn400BadRequest_WhenUserIsAlreadyVerified test
-        // because the activateUser method is called within the email verification process.
-        // Therefore, we can leave this test empty.
-    }
+    void sendEmailVerification_ShouldReturn401Unauthorized_WhenUserWithEmailAlreadyExists() throws Exception {
+        userService.createUser("logoutuser", "logoutuser@example.com", "Password123!");
 
-    @Test
-    void activateUser_ShouldActivateUser_WhenUserIsUnverified() throws Exception {
-        UserCreateRequest createRequest = new UserCreateRequest(
-            "activatetestuser",
-            "activatetestuser@example.com",
-            "Password123!"
-        );
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(createRequest)))
-            .andExpect(status().isCreated());
-
-        Optional<User> userOpt = userRepository.findByEmail("activatetestuser@example.com");
-        assertTrue(userOpt.isPresent());
-        User user = userOpt.get();
-        user.setEmailVerificationFailCount(0);
-        user.setEmailVerificationToken("000000");
-        user.setEmailVerificationExpiry(Instant.now().plusSeconds(60 * 15)); // 15 minutes from now
-        userRepository.save(user);
-        userRepository.flush();
-
-        UserEmailVerifyRequest request = new UserEmailVerifyRequest(
-            "activatetestuser@example.com",
-            "000000"
-        );
-        mockMvc.perform(post("/api/auth/register/verify-email")
+        // Now, attempt to send email verification for the same email
+        EmailVerificationCodeRequest request = new EmailVerificationCodeRequest("logoutuser@example.com");
+        mockMvc.perform(post("/api/auth/register/send-email-verification")
             .contentType(MediaType.APPLICATION_JSON)
             .content(toJson(request)))
-            .andExpect(status().isNoContent());
+            .andExpect(status().isForbidden());
+    }
 
-        userOpt = userRepository.findByEmail("activatetestuser@example.com");
-        assertTrue(userOpt.isPresent());
-        user = userOpt.get();
-        assertTrue(user.getRole().getName().equals(RoleEnum.USER));
-        Instant now = Instant.now();
-        assertTrue(now.isAfter(user.getEmailVerificationExpiry()));
-        assertTrue(user.getEmailVerificationFailCount() == 0);
+    @Test
+    void sendEmailVerification_ShouldReturn201Created_WhenEmailIsValid() throws Exception {
+        // With the valid email, it should return 201 Created up to 5 times
+        EmailVerificationCodeRequest request = new EmailVerificationCodeRequest("logoutuser@example.com");
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/auth/register/send-email-verification")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(request)))
+                .andExpect(status().isCreated());
+        }
+
+        // The 6th attempt within the lock duration should return 429 Too Many Requests
+        mockMvc.perform(post("/api/auth/register/send-email-verification")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(request)))
+            .andExpect(status().isForbidden());
     }
 
     @Test
@@ -799,11 +513,23 @@ public class AuthControllerTest {
 
     @Test
     void refreshToken_ShouldReturn401Unauthorized_WhenTokenIsExpired() throws Exception {
+        Instant now = Instant.now();
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("refreshtestuser@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationRequestedAt(now)
+            .emailVerificationExpiry(now.plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
         // First, create a user
         UserCreateRequest createRequest = new UserCreateRequest(
             "refreshtestuser",
             "refreshtestuser@example.com",
-            "Password123!"
+            "Password123!",
+            token
         );
         mockMvc.perform(post("/api/auth/register")
             .contentType(MediaType.APPLICATION_JSON)
@@ -844,5 +570,140 @@ public class AuthControllerTest {
         // Verify that the expired token has been deleted from the database
         Optional<RefreshToken> deletedTokenOpt = refreshTokenRepository.findById(UUID.fromString(tokenId));
         assertTrue(deletedTokenOpt.isEmpty());
+    }
+
+    @Test
+    void registerUser_ShouldReturn400BadRequest_WhenRequestDataIsInvalid() throws Exception {
+        // Invalid email format
+        UserCreateRequest invalidEmailRequest = new UserCreateRequest(
+            "testuser",
+            "invalid-email",
+            "Password123!",
+            "000000"
+        );
+
+        mockMvc.perform(post("/api/auth/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(invalidEmailRequest)))
+            .andExpect(status().isBadRequest());
+
+        // Blank nickname
+        UserCreateRequest blankNicknameRequest = new UserCreateRequest(
+            "",
+            "testuser@example.com",
+            "Password123!",
+            "000000"
+        );
+
+        mockMvc.perform(post("/api/auth/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(blankNicknameRequest)))
+            .andExpect(status().isBadRequest());
+
+        // Blank password
+        UserCreateRequest blankPasswordRequest = new UserCreateRequest(
+            "testuser",
+            "testuser@example.com",
+            "",
+            "000000"
+        );
+
+        mockMvc.perform(post("/api/auth/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(blankPasswordRequest)))
+            .andExpect(status().isBadRequest());
+
+        // Blank email verification token
+        UserCreateRequest blankTokenRequest = new UserCreateRequest(
+            "testuser",
+            "testuser@example.com",
+            "Password123!",
+            ""
+        );
+
+        mockMvc.perform(post("/api/auth/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(blankTokenRequest)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void registerUser_ShouldLockUserOut_WhenEmailVerificationTriesExceeded() throws Exception {
+        // First, send email verification 6 times to trigger lock
+        EmailVerificationCodeRequest emailRequest = new EmailVerificationCodeRequest("testuser@example.com");
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/auth/register/send-email-verification")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(emailRequest)))
+                .andExpect(status().isCreated());
+        }
+
+        // The 6th attempt within the lock duration should return 403 Forbidden
+        mockMvc.perform(post("/api/auth/register/send-email-verification")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(emailRequest)))
+            .andExpect(status().isForbidden());
+
+        // Now, attempt to register the user
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "testuser",
+            "testuser@example.com",
+            "Password123!",
+            "000000"
+        );
+
+        mockMvc.perform(post("/api/auth/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(createRequest)))
+            .andExpect(status().isBadRequest());
+
+        Optional<User> userOpt = userRepository.findByEmail("testuser@example.com");
+        assertTrue(userOpt.isEmpty());
+
+        EmailVerification evOpt = emailVerificationRepository.findByEmail("testuser@example.com").orElse(null);
+        assertTrue(evOpt != null);
+
+        assertTrue(evOpt.getEmailVerificationLockedAt() != null);
+        assertTrue(evOpt.getEmailVerificationFailCount() == 0, "Fail count is " + evOpt.getEmailVerificationFailCount());
+        assertTrue(evOpt.getEmailVerificationTries() == 5);
+    }
+
+    @Test
+    void registerUser_ShouldReturn201Created_WhenRequestDataIsValid() throws Exception {
+        Instant now = Instant.now();
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("testuser@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationRequestedAt(now)
+            .emailVerificationExpiry(now.plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "testuser",
+            "testuser@example.com",
+            "Password123!",
+            token
+        );
+
+        mockMvc.perform(post("/api/auth/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(createRequest)))
+            .andExpect(status().isCreated());
+
+        Optional<User> userOpt = userRepository.findByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+        User user = userOpt.get();
+        assertTrue(user.getRole().getName() == RoleEnum.USER);
+        assertNotNull(user.getPassword());
+        assertTrue(!user.getPassword().isEmpty());
+        assertTrue(!user.getPassword().equals("Password123!")); // Password should be hashed
+        assertTrue(userService.checkUserPassword(user, "Password123!"));
+        assertTrue(user.getEmailVerificationToken() == null || user.getEmailVerificationToken().isEmpty());
+
+        EmailVerification evOpt = emailVerificationRepository.findByEmail("testuser@example.com").orElse(null);
+        assertTrue(evOpt == null); // 이메일 인증 레코드가 삭제되었는지 확인
     }
 }

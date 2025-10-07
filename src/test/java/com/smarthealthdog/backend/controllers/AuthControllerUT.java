@@ -1,12 +1,10 @@
 package com.smarthealthdog.backend.controllers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.LoginRequest;
 import com.smarthealthdog.backend.dto.LoginResponse;
 import com.smarthealthdog.backend.dto.RefreshTokenRequest;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
-import com.smarthealthdog.backend.dto.UserEmailVerifyRequest;
 import com.smarthealthdog.backend.services.AuthService;
 import com.smarthealthdog.backend.services.CustomUserDetailsService;
 import com.smarthealthdog.backend.services.EmailService;
@@ -144,45 +142,6 @@ class AuthControllerUT {
         verify(authService, never()).generateTokens(anyLong());
     }
 
-    // --- /register Tests ---
-
-    @Test
-    void createUser_ShouldReturn201_OnSuccess() throws Exception {
-        // ARRANGE
-        UserCreateRequest request = new UserCreateRequest("John Doe", MOCK_EMAIL, MOCK_PASSWORD);
-        User newUser = mock(User.class);
-
-        when(authService.registerUser(request)).thenReturn(newUser);
-        doNothing().when(emailService).sendEmailVerification(newUser);
-
-        // ACT & ASSERT
-        mockMvc.perform(post(BASE_URL + "/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(toJson(request)))
-                .andExpect(status().isCreated()) // Expect 201 Created
-                .andExpect(content().string("")); // Response body should be empty
-
-        // VERIFY
-        verify(authService, times(1)).registerUser(request);
-        verify(emailService, times(1)).sendEmailVerification(newUser);
-    }
-
-    @Test
-    void createUser_ShouldReturn400_OnInvalidRegistrationInput() throws Exception {
-        // ARRANGE: Assuming validation rejects a name shorter than 3 characters
-        UserCreateRequest invalidRequest = new UserCreateRequest("Jo", MOCK_EMAIL, MOCK_PASSWORD);
-
-        // ACT & ASSERT
-        mockMvc.perform(post(BASE_URL + "/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(toJson(invalidRequest)))
-                .andExpect(status().isBadRequest()); // Expect 400 Bad Request
-
-        // VERIFY: No services should be called
-        verify(authService, never()).registerUser(any());
-        verify(emailService, never()).sendEmailVerification(any());
-    }
-
     // --- /logout Tests ---
     @Test
     void logoutUser_ShouldReturn400_OnInvalidInput() throws Exception {
@@ -251,52 +210,151 @@ class AuthControllerUT {
         verify(authService, never()).refreshAccessToken(any());
     }
 
-    // --- /register/verify-email Tests ---
-
     @Test
-    void verifyEmail_ShouldReturn204_OnSuccess() throws Exception {
+    void registerUser_ShouldReturn201_OnSuccess() throws Exception {
         // ARRANGE
-        String token = "000000";
-        UserEmailVerifyRequest request = new UserEmailVerifyRequest(MOCK_EMAIL, token);
-        User userToActivate = mock(User.class);
+        UserCreateRequest request = new UserCreateRequest(
+                "testuser", "testuser@example.com", "Password123!", "emailVerificationToken");
 
-        when(authService.verifyEmailToken(MOCK_EMAIL, token)).thenReturn(userToActivate);
-        doNothing().when(authService).activateUser(userToActivate);
+        doNothing().when(authService).registerUser(any(UserCreateRequest.class));
 
         // ACT & ASSERT
-        mockMvc.perform(post(BASE_URL + "/register/verify-email")
+        mockMvc.perform(post(BASE_URL + "/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJson(request)))
-                .andExpect(status().isNoContent()) // Expect 204 No Content
-                .andExpect(content().string("")); // Response body must be empty for 204
+                .andExpect(status().isCreated())
+                .andExpect(content().string("")); // Response body must be empty for 201
 
         // VERIFY
-        verify(authService, times(1)).verifyEmailToken(MOCK_EMAIL, token);
-        verify(authService, times(1)).activateUser(userToActivate);
+        verify(authService, times(1)).registerUser(any(UserCreateRequest.class));
     }
 
     @Test
-    void verifyEmail_ShouldReturn400_OnInvalidTokenOrEmail() throws Exception {
-        // ARRANGE
-        String invalidToken = "expired-token";
-        UserEmailVerifyRequest request = new UserEmailVerifyRequest(MOCK_EMAIL, invalidToken);
-
-        // Assuming AuthService throws an exception (which should be handled by a global @ControllerAdvice
-        // to return 400 or 404, but here we simulate an immediate failure for simplicity).
-        // If your AuthService throws a custom exception, you must mock the exception and ensure
-        // your setup maps it to a 4xx status. Here we rely on Spring's general behavior.
-        when(authService.verifyEmailToken(MOCK_EMAIL, invalidToken))
-                .thenThrow(new RuntimeException("Token invalid or expired"));
+    void registerUser_ShouldReturn400_OnInvalidInput() throws Exception {
+        // ARRANGE: Assuming validation rejects a blank email
+        UserCreateRequest invalidRequest = new UserCreateRequest(
+                "testuser", "", "Password123!", "emailVerificationToken");
 
         // ACT & ASSERT
-        mockMvc.perform(post(BASE_URL + "/register/verify-email")
+        mockMvc.perform(post(BASE_URL + "/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(toJson(request)))
-                // This status code depends heavily on your global exception handler.
-                // 400 or 409 (Conflict) are common for business logic errors here.
-                .andExpect(status().is(400)); 
+                .content(toJson(invalidRequest)))
+                .andExpect(status().isBadRequest()); // Expect 400 Bad Request
 
-        // VERIFY: activateUser should not be called
-        verify(authService, never()).activateUser(any());
+        // VERIFY: AuthService should not be called
+        verify(authService, never()).registerUser(any());
+
+        // If nickname is blank
+        UserCreateRequest invalidRequest2 = new UserCreateRequest(
+            "", "testuser@example.com", "Password123!", "emailVerificationToken");
+
+        // ACT & ASSERT
+        mockMvc.perform(post(BASE_URL + "/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(invalidRequest2)))
+            .andExpect(status().isBadRequest()); // Expect 400 Bad Request
+
+        // VERIFY: AuthService should not be called
+        verify(authService, never()).registerUser(any());
+
+        // If password is blank
+        UserCreateRequest invalidRequest3 = new UserCreateRequest(
+            "testuser", "testuser@example.com", "", "emailVerificationToken");
+        
+        // ACT & ASSERT
+        mockMvc.perform(post(BASE_URL + "/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(invalidRequest3)))
+            .andExpect(status().isBadRequest()); // Expect 400 Bad Request
+
+        // VERIFY: AuthService should not be called
+        verify(authService, never()).registerUser(any());
+
+        // If emailVerificationToken is blank
+        UserCreateRequest invalidRequest4 = new UserCreateRequest(
+            "testuser", "testuser@example.com", "Password123!", "");
+
+        // ACT & ASSERT
+        mockMvc.perform(post(BASE_URL + "/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(invalidRequest4)))
+            .andExpect(status().isBadRequest()); // Expect 400 Bad Request
+
+        // VERIFY: AuthService should not be called
+        verify(authService, never()).registerUser(any());
+
+        // If password does not meet complexity requirements
+        UserCreateRequest invalidRequest5 = new UserCreateRequest(
+            "testuser", "testuser@example.com", "pass", "emailVerificationToken");
+
+        // ACT & ASSERT
+        mockMvc.perform(post(BASE_URL + "/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(invalidRequest5)))
+            .andExpect(status().isBadRequest()); // Expect 400 Bad Request
+
+        // VERIFY: AuthService should not be called
+        verify(authService, never()).registerUser(any());
+
+        // If email format is invalid
+        UserCreateRequest invalidRequest6 = new UserCreateRequest(
+            "testuser", "invalid-email", "Password123!", "emailVerificationToken");
+
+        // ACT & ASSERT
+        mockMvc.perform(post(BASE_URL + "/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(invalidRequest6)))
+            .andExpect(status().isBadRequest()); // Expect 400 Bad Request
+
+        // VERIFY: AuthService should not be called
+        verify(authService, never()).registerUser(any());
+
+        // If nickname is too short
+        UserCreateRequest invalidRequest7 = new UserCreateRequest(
+            "ab", "testuser@example.com", "Password123!", "emailVerificationToken");
+
+        // ACT & ASSERT
+        mockMvc.perform(post(BASE_URL + "/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(invalidRequest7)))
+            .andExpect(status().isBadRequest()); // Expect 400 Bad Request
+
+        // VERIFY: AuthService should not be called
+        verify(authService, never()).registerUser(any());
+
+        // If nickname is too long
+        UserCreateRequest invalidRequest8 = new UserCreateRequest(
+            "a".repeat(129), "testuser@example.com", "Password123!", "emailVerificationToken");
+        // ACT & ASSERT
+        mockMvc.perform(post(BASE_URL + "/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(invalidRequest8)))
+            .andExpect(status().isBadRequest()); // Expect 400 Bad Request
+
+        // VERIFY: AuthService should not be called
+        verify(authService, never()).registerUser(any());
+
+        // If password is too short
+        UserCreateRequest invalidRequest9 = new UserCreateRequest(
+            "testuser", "testuser@example.com", "short", "emailVerificationToken");
+
+        // ACT & ASSERT
+        mockMvc.perform(post(BASE_URL + "/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(invalidRequest9)))
+            .andExpect(status().isBadRequest()); // Expect 400 Bad Request
+
+        // VERIFY: AuthService should not be called
+        verify(authService, never()).registerUser(any());
+
+        // If password is too long
+        UserCreateRequest invalidRequest10 = new UserCreateRequest(
+            "testuser", "testuser@example.com", "a".repeat(257), "emailVerificationToken");
+
+        // ACT & ASSERT
+        mockMvc.perform(post(BASE_URL + "/register")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(invalidRequest10)))
+            .andExpect(status().isBadRequest()); // Expect 400 Bad Request
     }
 }
