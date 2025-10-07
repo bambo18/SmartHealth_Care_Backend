@@ -81,10 +81,11 @@ public class RefreshTokenService {
         Date issuedAt = Date.from(now);
         Instant expiresAt = now.plusSeconds(refreshTokenExpirationInDays * 24 * 60 * 60);
 
-        RefreshToken refreshToken = new RefreshToken();
-        refreshToken.setUser(user);
-        refreshToken.setId(UUID.randomUUID());
-        refreshToken.setExpiresAt(expiresAt);
+        RefreshToken refreshToken = RefreshToken.builder()
+            .user(user)
+            .id(UUID.randomUUID())
+            .expiresAt(expiresAt)
+            .build();
 
         refreshTokenRepository.save(refreshToken);
         return jwtUtils.generateRefreshToken(
@@ -146,10 +147,11 @@ public class RefreshTokenService {
 
         Instant expiresAt = expiresAtInDate.toInstant();
 
-        RefreshToken refreshToken = new RefreshToken();
-        refreshToken.setUser(user);
-        refreshToken.setId(UUID.randomUUID());
-        refreshToken.setExpiresAt(expiresAt);
+        RefreshToken refreshToken = RefreshToken.builder()
+            .user(user)
+            .id(UUID.randomUUID())
+            .expiresAt(expiresAt)
+            .build();
 
         refreshTokenRepository.save(refreshToken);
 

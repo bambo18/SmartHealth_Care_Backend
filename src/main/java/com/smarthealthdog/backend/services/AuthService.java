@@ -1,53 +1,37 @@
 package com.smarthealthdog.backend.services;
 
-import java.time.Instant;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.LoginResponse;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
 import com.smarthealthdog.backend.exceptions.BadCredentialsException;
-import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
+import com.smarthealthdog.backend.exceptions.ForbiddenException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.validation.ErrorCode;
 
 @Service
 public class AuthService {
+    private final EmailVerificationService emailVerificationService;
     private final RefreshTokenService refreshTokenService;
     private final RefreshTokenCleanupService refreshTokenCleanupService;
     private final UserService userService;
 
     @Autowired
     public AuthService(
+        EmailVerificationService emailVerificationService,
         RefreshTokenService refreshTokenService,
         RefreshTokenCleanupService refreshTokenCleanupService,
         UserService userService
     ) {
+        this.emailVerificationService = emailVerificationService;
         this.refreshTokenService = refreshTokenService;
         this.refreshTokenCleanupService = refreshTokenCleanupService;
         this.userService = userService;
-    }
-
-    /**
-     * 유저 활성화(이메일 인증)
-     * @param user
-     */
-    @Transactional
-    public void activateUser(User user) {
-        // 역할이 UNVERIFIED_USER이 아닌 경우(이미 인증된 경우) 예외 발생
-        if (!user.getRole().getName().equals(RoleEnum.UNVERIFIED_USER)) {
-            throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
-        }
-
-        userService.changeRoleToVerifiedUser(user);
-        userService.expireEmailVerificationToken(user);
-        userService.resetEmailVerificationFailCount(user);
     }
 
 
@@ -138,54 +122,23 @@ public class AuthService {
      * @param request
      * @return 생성된 유저 객체
      */
-    public User registerUser(UserCreateRequest request) {
-        return userService.createUser(
+    @Transactional
+    public void registerUser(UserCreateRequest request) {
+        emailVerificationService.verifyEmailToken(request.email(), request.emailVerificationToken());
+
+        userService.createUser(
             request.nickname(),
             request.email(),
             request.password()
         );
     }
 
-    /**
-     * 이메일 인증 토큰 검증
-     * @param email
-     * @param token
-     * @return 검증된 유저 객체
-     * @throws InvalidRequestDataException 토큰이 유효하지 않을 경우 발생
-     */
-    public User verifyEmailToken(String email, String token) {
-        if (email == null || token == null) {
-            throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
-        }
+    @Transactional
+    public void sendEmailVerification(String email) {
+        userService.getUserByEmail(email).ifPresent(user -> {
+            throw new ForbiddenException(ErrorCode.EMAIL_VERIFICATION_FAIL_COUNT_EXCEEDED);
+        });
 
-        Optional<User> userOpt = userService.getUserByEmail(email);
-        // 이메일로 사용자를 찾을 수 없는 경우 예외 발생
-        if (userOpt.isEmpty()) {
-            throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
-        }
-
-        User user = userOpt.get();
-        if (user.getEmailVerificationFailCount() >= 5) {
-            throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
-        }
-
-        // 역할이 UNVERIFIED_USER이 아닌 경우(이미 인증된 경우) 예외 발생
-        if (!user.getRole().getName().equals(RoleEnum.UNVERIFIED_USER)) {
-            throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
-        }
-
-        // 토큰 인증 시간이 만료되었는지 확인
-        Instant expiry = user.getEmailVerificationExpiry();
-        if (expiry == null || Instant.now().isAfter(expiry)) {
-            throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
-        }
-
-        // 토큰이 불일치하는 경우 예외 발생
-        if (!token.equals(user.getEmailVerificationToken())) {
-            userService.incrementEmailVerificationFailCount(user);
-            throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
-        }
-
-        return user;
+        emailVerificationService.sendEmailVerification(email);
     }
 }
