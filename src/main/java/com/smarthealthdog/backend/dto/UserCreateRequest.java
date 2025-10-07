@@ -20,6 +20,9 @@ public record UserCreateRequest(
         regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()\\-+])[A-Za-z\\d!@#$%^&*()\\-+]{8,256}$",
         message = "비밀번호는 최소 하나의 대문자, 소문자, 숫자 및 특수 문자(!@#$%^&*()-+)를 포함해야 합니다."
     )
-    String password
+    String password,
+
+    @NotBlank(message = "이메일 인증 토큰은 필수 입력값입니다.")
+    String emailVerificationToken
 ) {
 }
