@@ -1,6 +1,7 @@
 package com.smarthealthdog.backend.services;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -18,9 +19,11 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.smarthealthdog.backend.domain.EmailVerification;
 import com.smarthealthdog.backend.domain.RefreshToken;
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
@@ -30,10 +33,10 @@ import com.smarthealthdog.backend.dto.UserCreateRequest;
 import com.smarthealthdog.backend.exceptions.BadCredentialsException;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
+import com.smarthealthdog.backend.repositories.EmailVerificationRepository;
 import com.smarthealthdog.backend.repositories.RefreshTokenRepository;
 import com.smarthealthdog.backend.repositories.RoleRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
-
 
 @TestInstance(Lifecycle.PER_CLASS)
 @SpringBootTest
@@ -57,6 +60,15 @@ public class AuthServiceTest {
     @Autowired
     private RefreshTokenRepository refreshTokenRepository;
 
+    @Autowired
+    private EmailVerificationRepository emailVerificationRepository;
+
+    @Autowired
+    private EmailVerificationService emailVerificationService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @BeforeAll
     void cleanUp() {
         ReflectionTestUtils.setField(
@@ -74,12 +86,19 @@ public class AuthServiceTest {
         userRole.setName(RoleEnum.USER);
         userRole.setDescription("Regular user role");
         roleRepository.save(userRole);
+
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "emailVerificationSecret",
+            "test-email-verification-secret"
+        );
     }
 
     @AfterEach
     void tearDown() {
         refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
+        emailVerificationRepository.deleteAll();
     }
 
     @AfterAll
@@ -87,20 +106,37 @@ public class AuthServiceTest {
         refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
         roleRepository.deleteAll();
+        emailVerificationRepository.deleteAll();
     }
 
     @Test
     void registerUser_shouldReturnCreatedUser() {
+        // Arrange
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("test@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
+
         UserCreateRequest createRequest = new UserCreateRequest(
             "testuser",
             "test@example.com",
-            "TestPassword123!"
+            "TestPassword123!",
+            "000000"
         );
 
         // Act
-        User createdUser = authService.registerUser(createRequest);
+        authService.registerUser(createRequest);
 
-        assertTrue(createdUser.getRole().getName() == RoleEnum.UNVERIFIED_USER);
+        // Assert
+        User createdUser = userRepository.findByEmail("test@example.com").orElse(null);
+        assertTrue(createdUser != null);
+        assertTrue(createdUser.getRole().getName() == RoleEnum.USER);
         assertTrue(createdUser.getEmail().equals("test@example.com"));
         assertTrue(createdUser.getNickname().equals("testuser"));
 
@@ -115,7 +151,8 @@ public class AuthServiceTest {
         UserCreateRequest createRequest = new UserCreateRequest(
             "ab", // 너무 짧은 닉네임
             "test@example.com",
-            "TestPassword123!"
+            "TestPassword123!",
+            "000000"
         );
 
         // Act & Assert
@@ -126,7 +163,8 @@ public class AuthServiceTest {
         UserCreateRequest createRequest2 = new UserCreateRequest(
             "a".repeat(129), // 너무 긴 닉네임
             "test@example.com",
-            "TestPassword123!"
+            "TestPassword123!",
+            "000000"
         );
 
         // Act & Assert
@@ -136,11 +174,21 @@ public class AuthServiceTest {
     }
 
     @Test
-    void registerUser_ShouldThrowException_WhenEmailAlreadyExists() {
+    void registerUser_ShouldThrowException_WhenTokenIsUsedTwice() {
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("test@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
         UserCreateRequest createRequest1 = new UserCreateRequest(
             "testuser1",
             "test@example.com",
-            "TestPassword123!"
+            "TestPassword123!",
+            token
         );
 
         // Act & Assert
@@ -155,7 +203,8 @@ public class AuthServiceTest {
         UserCreateRequest createRequest = new UserCreateRequest(
             "testuser",
             "test@example.com",
-            "short123!" // 대문자 없음
+            "short123!", // 대문자 없음
+            "000000"
         );
 
         // Act & Assert
@@ -166,7 +215,8 @@ public class AuthServiceTest {
         UserCreateRequest createRequest2 = new UserCreateRequest(
             "testuser",
             "test@example.com",
-            "SHORT123!" // 소문자 없음
+            "SHORT123!", // 소문자 없음
+            "000000"
         );
 
         // Act & Assert
@@ -177,7 +227,8 @@ public class AuthServiceTest {
         UserCreateRequest createRequest3 = new UserCreateRequest(
             "testuser",
             "test@example.com",
-            "NoDigits!" // 숫자 없음
+            "NoDigits!", // 숫자 없음
+            "000000"
         );
 
         // Act & Assert
@@ -188,7 +239,8 @@ public class AuthServiceTest {
         UserCreateRequest createRequest4 = new UserCreateRequest(
             "testuser",
             "test@example.com",
-            "NoSpecialChar123" // 특수문자 없음
+            "NoSpecialChar123", // 특수문자 없음
+            "000000"
         );
 
         // Act & Assert
@@ -199,7 +251,8 @@ public class AuthServiceTest {
         UserCreateRequest createRequest5 = new UserCreateRequest(
             "testuser",
             "test@example.com",
-            "A1!" // 너무 짧은 비밀번호
+            "A1!", // 너무 짧은 비밀번호
+            "000000"
         );
 
         // Act & Assert
@@ -210,7 +263,8 @@ public class AuthServiceTest {
         UserCreateRequest createRequest6 = new UserCreateRequest(
             "testuser",
             "test@example.com",
-            "A".repeat(257) + "1!" // 너무 긴 비밀번호
+            "A".repeat(257) + "1!", // 너무 긴 비밀번호
+            "000000"
         );
 
         // Act & Assert
@@ -220,165 +274,34 @@ public class AuthServiceTest {
     }
 
     @Test
-    void verifyEmailToken_ShouldThrowException_WhenUserIsAlreadyVerified() {
-        // Arrange
+    void registerUser_ShouldThrowException_WhenEmailVerificationTokenIsInvalid() {
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("test@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
         UserCreateRequest createRequest = new UserCreateRequest(
             "testuser",
             "test@example.com",
-            "TestPassword123!"
+            "TestPassword123!",
+            "000001"
         );
 
-        // Act
-        User user = authService.registerUser(createRequest);
-        user.setRole(roleRepository.findByName(RoleEnum.USER).orElseThrow());
-        user.setEmailVerificationToken("000000");
-        user.setEmailVerificationFailCount(0);
-        user.setEmailVerificationExpiry(Instant.now().plusSeconds(3600));
-        userRepository.save(user);
+        // Act & Assert
+        for (int i = 0 ; i < 5 ; i++) {
+            assertThrows(InvalidRequestDataException.class, () -> {
+                authService.registerUser(createRequest);
+            });
 
-        // Assert
-        assertThrows(InvalidRequestDataException.class, () -> {
-            authService.verifyEmailToken("test@example.com", "000000");
-        });
-    }
-
-    @Test
-    void verifyEmailToken_ShouldThrowException_WhenFailCountExceedsLimit() {
-        // Arrange
-        UserCreateRequest createRequest = new UserCreateRequest(
-            "testuser",
-            "test@example.com",
-            "TestPassword123!"
-        );
-
-        // Act
-        User user = authService.registerUser(createRequest);
-        user.setEmailVerificationToken("000000");
-        user.setEmailVerificationFailCount(5);
-        user.setEmailVerificationExpiry(Instant.now().plusSeconds(3600));
-        userRepository.save(user);
-
-        // Assert
-        assertThrows(InvalidRequestDataException.class, () -> {
-            authService.verifyEmailToken("test@example.com", "000000");
-        });
-    }
-
-    @Test
-    void verifyEmailToken_ShouldThrowException_WhenEmailIsNotFound() {
-        // Assert
-        assertThrows(InvalidRequestDataException.class, () -> {
-            authService.verifyEmailToken("nonexistent@example.com", "000000");
-        });
-    }
-
-    @Test
-    void verifyEmailToken_ShouldThrowException_WhenTokenIsExpired() {
-        // Arrange
-        UserCreateRequest createRequest = new UserCreateRequest(
-            "testuser",
-            "test@example.com",
-            "TestPassword123!"
-        );
-
-        // Act
-        User user = authService.registerUser(createRequest);
-        user.setEmailVerificationToken("000000");
-        user.setEmailVerificationFailCount(0);
-        user.setEmailVerificationExpiry(Instant.now().minusSeconds(3600));
-        userRepository.save(user);
-
-        // Assert
-        assertThrows(InvalidRequestDataException.class, () -> {
-            authService.verifyEmailToken("test@example.com", "000000");
-        });
-    }
-
-    @Test
-    void verifyEmailToken_ShouldThrowException_WhenTokenDoesNotMatch() {
-        // Arrange
-        UserCreateRequest createRequest = new UserCreateRequest(
-            "testuser",
-            "test@example.com",
-            "TestPassword123!"
-        );
-
-        // Act
-        User user = authService.registerUser(createRequest);
-        user.setEmailVerificationToken("000000");
-        user.setEmailVerificationFailCount(0);
-        user.setEmailVerificationExpiry(Instant.now().plusSeconds(3600));
-        userRepository.save(user);
-
-        // Assert
-        assertThrows(InvalidRequestDataException.class, () -> {
-            authService.verifyEmailToken("test@example.com", "111111");
-        });
-
-        // Verify that fail count has been incremented
-        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
-        assertTrue(updatedUser.getEmailVerificationFailCount() == 1);
-    }
-
-    @Test
-    void verifyEmailToken_ShouldReturnUser_WhenTokenIsValid() {
-        // Arrange
-        UserCreateRequest createRequest = new UserCreateRequest(
-            "testuser",
-            "test@example.com",
-            "TestPassword123!"
-        );
-
-        // Act
-        User user = authService.registerUser(createRequest);
-        user.setEmailVerificationToken("000000");
-        user.setEmailVerificationFailCount(0);
-        user.setEmailVerificationExpiry(Instant.now().plusSeconds(3600));
-        userRepository.save(user);
-
-        // Assert
-        User verifiedUser = authService.verifyEmailToken("test@example.com", "000000");
-        assertEquals(user.getId(), verifiedUser.getId());
-    }
-
-    @Test
-    void activateUser_ShouldThrowException_WhenUserIsAlreadyVerified() {
-        // Arrange
-        UserCreateRequest createRequest = new UserCreateRequest(
-            "testuser",
-            "test@example.com",
-            "TestPassword123!"
-        );
-
-        // Act
-        User user = authService.registerUser(createRequest);
-        user.setRole(roleRepository.findByName(RoleEnum.USER).orElseThrow());
-        assertThrows(InvalidRequestDataException.class, () -> {
-            authService.activateUser(user);
-        });
-    }
-
-    @Test
-    void activateUser_ShouldChangeUserRoleAndExpireToken() {
-        // Arrange
-        UserCreateRequest createRequest = new UserCreateRequest(
-            "testuser",
-            "test@example.com",
-            "TestPassword123!"
-        );
-
-        // Act
-        User user = authService.registerUser(createRequest);
-        user.setRole(roleRepository.findByName(RoleEnum.UNVERIFIED_USER).orElseThrow());
-        authService.activateUser(user);
-    
-        // Assert
-        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
-        assertEquals(RoleEnum.USER, updatedUser.getRole().getName());
-        assertTrue(updatedUser.getEmailVerificationExpiry() != null);
-        assertTrue(Instant.now().isAfter(updatedUser.getEmailVerificationExpiry()));
-        assertTrue(updatedUser.getEmailVerificationToken() == null);
-        assertTrue(updatedUser.getEmailVerificationFailCount() == 0);
+            // Check to make sure the fail count is incremented
+            EmailVerification updatedRecord = emailVerificationRepository.findByEmail("test@example.com").orElse(null);
+            assertNotNull(updatedRecord);
+            assertEquals(i + 1, updatedRecord.getEmailVerificationFailCount());
+        }
     }
 
     @Test
@@ -392,17 +315,27 @@ public class AuthServiceTest {
 
     @Test
     void generateTokens_ShouldReturnTokens_whenUserExists() {
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("test@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
         // Arrange
         UserCreateRequest createRequest = new UserCreateRequest(
             "testuser",
             "test@example.com",
-            "TestPassword123!"
+            "TestPassword123!",
+            token
         );
 
         // Act
-        User user = authService.registerUser(createRequest);
-        user.setRole(roleRepository.findByName(RoleEnum.USER).orElseThrow());
-        userRepository.save(user);
+        authService.registerUser(createRequest);
+        User user = userRepository.findByEmail("test@example.com").orElse(null);
+        assertNotNull(user);
 
         // Assert
         LoginResponse loginResponse = authService.generateTokens(user.getId());
@@ -413,23 +346,35 @@ public class AuthServiceTest {
 
     @Test
     void generateTokens_ShouldDeleteExpiredRefreshTokens() {
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("test@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
         // Arrange
         UserCreateRequest createRequest = new UserCreateRequest(
             "testuser",
             "test@example.com",
-            "TestPassword123!"
+            "TestPassword123!",
+            token
         );
 
         // Act
-        User user = authService.registerUser(createRequest);
-        user.setRole(roleRepository.findByName(RoleEnum.USER).orElseThrow());
-        userRepository.save(user);
+        authService.registerUser(createRequest);
+        User user = userRepository.findByEmail("test@example.com").orElse(null);
+        assertNotNull(user);
 
         // Create an expired refresh token
-        RefreshToken expiredToken = new RefreshToken();
-        expiredToken.setUser(user);
-        expiredToken.setExpiresAt(Instant.now().minusSeconds(3600)); // 이미 만료된 토큰
-        expiredToken.setId(UUID.randomUUID());
+        RefreshToken expiredToken = RefreshToken.builder()
+            .user(user)
+            .expiresAt(Instant.now().minusSeconds(3600)) // 이미 만료된 토큰
+            .id(UUID.randomUUID())
+            .build();
+
         refreshTokenRepository.save(expiredToken);
 
         assertTrue(refreshTokenRepository.findByUser(user).size() == 1);
@@ -441,18 +386,27 @@ public class AuthServiceTest {
     }
 
     @Test
-    void generateToken_ShouldEnforceMaxRefreshTokenCount() {
-        // Arrange
+    void generateTokens_ShouldEnforceMaxRefreshTokenCount() {
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("test@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
         UserCreateRequest createRequest = new UserCreateRequest(
             "testuser",
             "test@example.com",
-            "TestPassword123!"
+            "TestPassword123!",
+            token
         );
 
         // Act
-        User user = authService.registerUser(createRequest);
-        user.setRole(roleRepository.findByName(RoleEnum.USER).orElseThrow());
-        userRepository.save(user);
+        authService.registerUser(createRequest);
+        User user = userRepository.findByEmail("test@example.com").orElse(null);
+        assertNotNull(user);
 
         // Generate multiple tokens to exceed the max count
         for (int i = 0; i < 10; i++) {
@@ -467,7 +421,7 @@ public class AuthServiceTest {
         authService.generateTokens(user.getId());
 
         List<RefreshToken> updatedTokens = refreshTokenRepository.findByUser(user);
-        assertEquals(10, updatedTokens.size());
+        assertEquals(10, updatedTokens.size(), "Total refresh tokens should still be 10 after enforcement");
         // Compare both lists by creating two sets of token IDs
         Set<UUID> originalTokenIds = tokens.stream()
             .map(RefreshToken::getId)
@@ -502,17 +456,27 @@ public class AuthServiceTest {
 
     @Test
     void invalidateRefreshToken_ShouldDeleteToken_WhenTokenIsValid() {
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("test@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
         // Arrange
         UserCreateRequest createRequest = new UserCreateRequest(
             "testuser",
             "test@example.com",
-            "TestPassword123!"
+            "TestPassword123!",
+            token
         );
 
         // Act
-        User user = authService.registerUser(createRequest);
-        user.setRole(roleRepository.findByName(RoleEnum.USER).orElseThrow());
-        userRepository.save(user);
+        authService.registerUser(createRequest);
+        User user = userRepository.findByEmail("test@example.com").orElse(null);
+        assertNotNull(user);
 
         String refreshToken = refreshTokenService.generateRefreshToken(user);
         assertTrue(refreshToken != null && refreshToken.length() > 0);
@@ -543,17 +507,28 @@ public class AuthServiceTest {
 
     @Test
     void refreshAccessToken_ShouldReturnNewTokens_WhenRefreshTokenIsValid() {
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("test@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
+
         // Arrange
         UserCreateRequest createRequest = new UserCreateRequest(
             "testuser",
             "test@example.com",
-            "TestPassword123!"
+            "TestPassword123!",
+            token
         );
 
         // Act
-        User user = authService.registerUser(createRequest);
-        user.setRole(roleRepository.findByName(RoleEnum.USER).orElseThrow());
-        userRepository.save(user);
+        authService.registerUser(createRequest);
+        User user = userRepository.findByEmail("test@example.com").orElse(null);
+        assertNotNull(user);
 
         String refreshToken = refreshTokenService.generateRefreshToken(user);
         assertTrue(refreshToken != null && refreshToken.length() > 0);

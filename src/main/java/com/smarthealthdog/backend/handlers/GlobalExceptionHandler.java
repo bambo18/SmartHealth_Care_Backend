@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.smarthealthdog.backend.dto.ErrorMessage;
+import com.smarthealthdog.backend.exceptions.ForbiddenException;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.validation.ErrorCode;
@@ -93,6 +94,20 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
             .status(HttpStatus.BAD_REQUEST)
+            .body(errorResponseBody);
+    }
+
+    // 403 에러 처리
+    @ExceptionHandler(ForbiddenException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ResponseEntity<ErrorMessage> handleForbiddenException(ForbiddenException e) {
+        ErrorMessage errorResponseBody = new ErrorMessage(
+            List.of(e.getErrorCode().name()),
+            List.of(e.getErrorCode().getMessage())
+        );
+
+        return ResponseEntity
+            .status(HttpStatus.FORBIDDEN)
             .body(errorResponseBody);
     }
 

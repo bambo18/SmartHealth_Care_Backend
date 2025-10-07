@@ -11,8 +11,10 @@ public enum ErrorCode {
     INVALID_NICKNAME("닉네임은 3-128자여야 합니다."),
     INVALID_EMAIL("이미 사용 중인 이메일이거나 형식이 올바르지 않습니다."),
     INVALID_PASSWORD("비밀번호는 8-256자여야 하며, 최소 하나의 대문자, 소문자, 숫자 및 특수 문자(!@#$%^&*()-+)을 포함해야 합니다."),
-    INVALID_EMAIL_VERIFICATION("이메일 인증 토큰이 만료되었거나 유효하지 않습니다.");
+    INVALID_EMAIL_VERIFICATION("이메일 인증 토큰이 만료되었거나 유효하지 않습니다."),
 
+    EMAIL_VERIFICATION_TRIES_EXCEEDED("이메일 인증 시도 횟수를 초과했습니다. 하루 후 다시 시도해주세요."),
+    EMAIL_VERIFICATION_FAIL_COUNT_EXCEEDED("이메일 인증 실패 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.");
 
     private final String message;
 

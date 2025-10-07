@@ -85,17 +85,17 @@ public class UserService {
             throw new InvalidRequestDataException(ErrorCode.INVALID_PASSWORD);
         }
 
-        Role unverifiedUserRole = roleService.getUnverifiedUserRole();
+        Role userRole = roleService.getUserRole();
 
-        User newUser = new User();
-        newUser.setNickname(nickname);
-        newUser.setEmail(email);
-        newUser.setPassword(password);
-        newUser.setRole(unverifiedUserRole);
+        String hashedPassword = passwordEncoder.encode(password);
+        User newUser = User.builder()
+                            .nickname(nickname)
+                            .email(email)
+                            .password(hashedPassword)
+                            .role(userRole)
+                            .build();
 
-        setUserPassword(newUser, password);
         userRepository.save(newUser);
-
         return newUser;
     }
 
