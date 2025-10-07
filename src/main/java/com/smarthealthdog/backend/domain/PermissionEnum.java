@@ -49,6 +49,7 @@ public enum PermissionEnum {
     // --- Administrator Permissions ---
     CAN_MANAGE_ALL_USERS("can_manage_all_users", "모든 사용자 관리"),
     CAN_MANAGE_ALL_PETS("can_manage_all_pets", "모든 반려동물 관리"),
+    CAN_MANAGE_ALL_SHELTERS("can_manage_all_shelters", "모든 보호소 관리"),
     CAN_MANAGE_ALL_WALK_RECORDS("can_manage_all_walk_records", "모든 산책 기록 관리"),
     CAN_MANAGE_ALL_HEALTH_RECORDS("can_manage_all_health_records", "모든 건강 기록 관리"),
     CAN_ACCESS_SYSTEM_METRICS("can_access_system_metrics", "시스템 지표 접근"),
