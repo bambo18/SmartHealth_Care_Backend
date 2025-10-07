@@ -15,24 +15,29 @@ import com.smarthealthdog.backend.repositories.EmailVerificationRepository;
 import com.smarthealthdog.backend.utils.TokenGenerator;
 import com.smarthealthdog.backend.validation.ErrorCode;
 
+import jakarta.persistence.EntityManager;
+
 @Service
 public class EmailVerificationService {
     private final EmailService emailService;
     private final EmailVerificationRepository emailVerificationRepository;
     private final TokenGenerator tokenGenerator;
     private final PasswordEncoder passwordEncoder;
+    private final EntityManager entityManager;
 
     @Autowired
     public EmailVerificationService(
         EmailService emailService, 
         EmailVerificationRepository emailVerificationRepository,
         TokenGenerator tokenGenerator,
-        PasswordEncoder passwordEncoder
+        PasswordEncoder passwordEncoder,
+        EntityManager entityManager
     ) {
         this.emailService = emailService;
         this.emailVerificationRepository = emailVerificationRepository;
         this.tokenGenerator = tokenGenerator;
         this.passwordEncoder = passwordEncoder;
+        this.entityManager = entityManager;
     } 
 
     @Value("${app.token.email-verification.expiration.minutes}")
@@ -93,7 +98,9 @@ public class EmailVerificationService {
     }
 
     /**
-     * 기존 이메일 인증 레코드가 있는지 확인하고, 있으면 잠금 상태인지 확인
+     * 기존 이메일 인증 레코드가 있는지 확인하고, 있으면 잠금 상태인지 확인.
+     * 기존 레코드가 잠금 상태이거나, 시도 횟수 또는 실패 횟수가 초과된 경우 예외 발생.
+     * 특정 기간이 지난 경우 시도 횟수 및 실패 횟수 초기화.
      * @param email
      * @throws ForbiddenException 잠금 상태일 경우 발생
      */
@@ -165,7 +172,9 @@ public class EmailVerificationService {
             throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
         }
 
-        if (emailVerification.getEmailVerificationLockedAt() != null) {
+        // 잠금 상태인지 확인
+        Instant lockedAt = emailVerification.getEmailVerificationLockedAt();
+        if (lockedAt != null) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
         }
 
@@ -173,9 +182,12 @@ public class EmailVerificationService {
         Instant expiry = emailVerification.getEmailVerificationExpiry();
         if (expiry == null || Instant.now().isAfter(expiry)) {
             emailVerificationRepository.incrementEmailVerificationFailCountByEmail(email);
-            EmailVerification updatedVerification = emailVerificationRepository.getByEmail(email);
-            if (updatedVerification != null && updatedVerification.getEmailVerificationFailCount() >= emailVerificationFailureAttempts) {
+            entityManager.refresh(emailVerification); // 영속성 컨텍스트에서 최신 상태로 갱신
+
+            // 실패 횟수가 5회를 초과했는지 확인
+            if (emailVerification.getEmailVerificationFailCount() >= emailVerificationFailureAttempts) {
                 emailVerificationRepository.lockEmailVerificationByEmail(email, Instant.now());
+                throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
             }
 
             throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
@@ -185,9 +197,12 @@ public class EmailVerificationService {
         String hashedToken = emailVerification.getEmailVerificationToken();
         if (hashedToken == null || !passwordEncoder.matches(token + emailVerificationSecret, hashedToken)) {
             emailVerificationRepository.incrementEmailVerificationFailCountByEmail(email);
-            EmailVerification updatedVerification = emailVerificationRepository.getByEmail(email);
-            if (updatedVerification != null && updatedVerification.getEmailVerificationFailCount() >= emailVerificationFailureAttempts) {
+            entityManager.refresh(emailVerification); // 영속성 컨텍스트에서 최신 상태로 갱신
+
+            // 실패 횟수가 5회를 초과했는지 확인
+            if (emailVerification.getEmailVerificationFailCount() >= emailVerificationFailureAttempts) {
                 emailVerificationRepository.lockEmailVerificationByEmail(email, Instant.now());
+                throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
             }
 
             throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);

@@ -12,14 +12,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.smarthealthdog.backend.domain.User;
+import com.smarthealthdog.backend.dto.EmailVerificationCodeRequest;
 import com.smarthealthdog.backend.dto.LoginRequest;
 import com.smarthealthdog.backend.dto.LoginResponse;
 import com.smarthealthdog.backend.dto.RefreshTokenRequest;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
-import com.smarthealthdog.backend.dto.UserEmailVerifyRequest;
 import com.smarthealthdog.backend.services.AuthService;
-import com.smarthealthdog.backend.services.EmailService;
 
 import jakarta.validation.Valid;
 
@@ -28,31 +26,26 @@ import jakarta.validation.Valid;
 public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final AuthService authService;
-    private final EmailService emailService;
 
     @Autowired
     public AuthController(
         AuthenticationManager authenticationManager,
-        AuthService authService,
-        EmailService emailService
+        AuthService authService
     ) {
         this.authenticationManager = authenticationManager;
         this.authService = authService;
-        this.emailService = emailService;
     }
 
     @PostMapping("/register")
     public ResponseEntity<Void> createUser(@Valid @RequestBody UserCreateRequest request) {
-        User newUser = authService.registerUser(request);
-        emailService.sendEmailVerification(newUser);
+        authService.registerUser(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(null);
     }
 
-    @PostMapping("/register/verify-email")
-    public ResponseEntity<Void> verifyEmail(@Valid @RequestBody UserEmailVerifyRequest request) {
-        User user = authService.verifyEmailToken(request.email(), request.token());
-        authService.activateUser(user);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).body(null);
+    @PostMapping("/register/send-email-verification")
+    public ResponseEntity<Void> sendEmailVerification(@Valid @RequestBody EmailVerificationCodeRequest request) {
+        authService.sendEmailVerification(request.email());
+        return ResponseEntity.status(HttpStatus.CREATED).body(null);
     }
 
     @PostMapping("/login")
