@@ -1,0 +1,91 @@
+spring:
+  application:
+    name: backend
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    # 스키마 자동 생성 설정 (개발 환경에서만 사용 권장)
+    # generate-ddl: true 
+
+    # 스키마를 SQL 파일로 내보내기 설정 (필요시 사용)
+    # properties.javax.persistence.schema-generation.scripts.action: create
+    # properties.javax.persistence.schema-generation.scripts.create-target: src/main/resources/schema.sql
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    user: postgres
+    password: ${DB_PASSWORD}
+    baseline-on-migrate: true
+  mail:
+    host: ${SMTP_HOST}
+    username: ${SMTP_USER}
+    password: ${SMTP_PASSWORD}
+    properties:
+      mail:
+        transport:
+          protocol: smtp
+        smtp:
+          port: 25
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token:
+    expiration:
+      minutes: 15
+  refresh-token:
+    expiration:
+      days: 7
+    max-count: 10
+
+app:
+  mail:
+    from: ${SMTP_FROM}
+  token:
+    email-verification:
+      secret: ${EMAIL_VERIFICATION_SECRET}
+      # 이메일 인증 시도 최대 횟수
+      tries:
+        count: 5
+        duration:
+          days: 1
+      # 이메일 인증 토큰 당 실패 시도 최대 횟수
+      failure:
+        attempts: 5
+      # 이메일 인증 토큰 당 최대 실패 후 잠금 기간 (분)
+      lock:
+        duration:
+          minutes: 30
+      # 이메일 인증 토큰 만료 시간 (분)
+      expiration:
+        minutes: 15
+    password-reset:
+      expiration:
+        minutes: 15
+
+cloud:
+  aws:
+    region:
+      static: ${AWS_REGION}
+    credentials:
+      access-key: ${AWS_ACCESS_KEY}
+      secret-key: ${AWS_SECRET_KEY}
+    s3:
+      bucket: ${AWS_S3_BUCKET}
