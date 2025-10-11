@@ -1,20 +1,17 @@
 package com.smarthealthdog.backend.services;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.repositories.RoleRepository;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @Service
 public class RoleService {
-    private RoleRepository roleRepository;
-
-    @Autowired
-    public RoleService(RoleRepository roleRepository) {
-        this.roleRepository = roleRepository;
-    }
+    private final RoleRepository roleRepository;
 
     /**
      * 인증되지 않은 유저 역할 조회
