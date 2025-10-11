@@ -1,6 +1,5 @@
 package com.smarthealthdog.backend.controllers;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -20,21 +19,14 @@ import com.smarthealthdog.backend.dto.UserCreateRequest;
 import com.smarthealthdog.backend.services.AuthService;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final AuthService authService;
-
-    @Autowired
-    public AuthController(
-        AuthenticationManager authenticationManager,
-        AuthService authService
-    ) {
-        this.authenticationManager = authenticationManager;
-        this.authService = authService;
-    }
 
     @PostMapping("/register")
     public ResponseEntity<Void> createUser(@Valid @RequestBody UserCreateRequest request) {
