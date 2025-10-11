@@ -123,7 +123,7 @@ public class RefreshTokenCleanupServiceTest {
             "Password123!",
             token
         );
-        authService.registerUser(request);
+        authService.registerUser(request, null);
 
         Optional<User> userOpt = userService.getUserByEmail("testuser@example.com");
         assertTrue(userOpt.isPresent());

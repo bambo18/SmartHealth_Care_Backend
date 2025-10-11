@@ -105,7 +105,7 @@ public class CustomUserDetailsServiceTest {
             token
         );
 
-        authService.registerUser(userRequest);
+        authService.registerUser(userRequest, null);
 
         User loadUser = userRepository.findByEmail("test@test.com").orElseThrow();
         if (loadUser == null) {
