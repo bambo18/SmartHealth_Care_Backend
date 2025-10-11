@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.LoginResponse;
@@ -111,14 +112,17 @@ public class AuthService {
      * @return 생성된 유저 객체
      */
     @Transactional
-    public void registerUser(UserCreateRequest request) {
+    public void registerUser(UserCreateRequest request, MultipartFile profilePicture) {
         emailVerificationService.verifyEmailToken(request.email(), request.emailVerificationToken());
-
-        userService.createUser(
+        User user = userService.createUser(
             request.nickname(),
             request.email(),
             request.password()
         );
+
+        if (profilePicture != null && !profilePicture.isEmpty()) {
+            userService.setUserProfilePicture(user, profilePicture);
+        }
     }
 
     @Transactional
