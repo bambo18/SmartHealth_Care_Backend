@@ -27,7 +27,7 @@ class EmailServiceUT {
 
     // InjectMocks attempts to inject the mocks into this instance
     @InjectMocks
-    private EmailService emailService;
+    private DevEmailService emailService;
 
     // Mock all the dependencies
     @Mock
