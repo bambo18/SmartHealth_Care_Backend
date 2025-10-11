@@ -1,9 +1,15 @@
 package com.smarthealthdog.backend.services;
 
+import java.io.IOException;
+
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.smarthealthdog.backend.domain.User;
+import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
+import com.smarthealthdog.backend.utils.FileUtils;
 import com.smarthealthdog.backend.utils.S3Uploader;
+import com.smarthealthdog.backend.validation.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -14,17 +20,47 @@ public class FileUploadService {
 
     /**
      * S3 버킷에 프로필 사진 업로드
-     * @param fileBytes 파일 바이트 배열
-     * @param originalFilename 원본 파일 이름
-     * @param contentType 파일 콘텐츠 타입 (예: "image/png")
+     * @param userId 사용자 ID
+     * @param file 업로드할 프로필 사진 파일
      * @return 파일 URL
-     * @throws Exception
+     * @throws IOException 파일 업로드 중 오류 발생 시
+     * @throws InvalidRequestDataException 유효하지 않은 이미지 파일인 경우 발생
      */
-    public String uploadProfilePicture(MultipartFile file) throws Exception {
-        // TODO: 파일 크기 및 형식 검증
-        // 예: 최대 5MB, PNG/JPEG 형식 등
-        // 이미지가 아닌 파일 업로드 시 예외 처리
+    public void uploadProfilePicture(User user, MultipartFile file) throws IOException, InvalidRequestDataException {
+        validateImageFile(file);
+        s3Uploader.uploadProfilePicture(user, file);
+    }
 
-        return s3Uploader.uploadFile("profiles/", file);
+    /**
+     * 업로드된 파일이 유효한 이미지 파일인지 검증
+     * @param file 업로드된 파일
+     * @throws InvalidRequestDataException 이미지 파일이 아닌 경우 발생
+     */
+    public void validateImageFile(MultipartFile file) throws InvalidRequestDataException {
+        if (file == null || file.isEmpty()) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
+        }
+
+        // 파일 크기 검사 (예: 최대 5MB)
+        long maxFileSize = 5 * 1024 * 1024; // 5MB
+        if (file.getSize() > maxFileSize) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
+        }
+
+        // 파일 형식 검사
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || !(originalFilename.endsWith(".png") || originalFilename.endsWith(".jpg") || originalFilename.endsWith(".jpeg"))) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
+        }
+
+        // MIME 타입 검사
+        try {
+            boolean isValidImageFile = FileUtils.isValidImageFile(file.getInputStream());
+            if (!isValidImageFile) {
+                throw new IllegalArgumentException("유효하지 않은 이미지 파일");
+            }
+        } catch (IOException | IllegalArgumentException e) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
+        }
     }
 }
