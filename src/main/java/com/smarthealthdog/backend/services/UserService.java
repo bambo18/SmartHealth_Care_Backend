@@ -1,11 +1,13 @@
 package com.smarthealthdog.backend.services;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.Optional;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.User;
@@ -25,6 +27,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final PasswordValidator passwordValidator;
     private final NicknameValidator nicknameValidator;
+    private final FileUploadService fileUploadService;
 
     /**
      * 사용자 비밀번호 확인
@@ -147,6 +150,24 @@ public class UserService {
     public void setUserPassword(User user, String rawPassword) {
         String hashedPassword = passwordEncoder.encode(rawPassword);
         user.setPassword(hashedPassword);
+    }
+
+    /**
+     * 사용자 프로필 사진 설정
+     * @param user 사용자 객체
+     * @param profilePicture 업로드할 프로필 사진 파일
+     */
+    public void setUserProfilePicture(User user, MultipartFile profilePicture) {
+        if (user == null || profilePicture == null || profilePicture.isEmpty()) {
+            return;
+        }
+
+        // 이미지 유효성 검사
+        try {
+            fileUploadService.uploadProfilePicture(user, profilePicture);
+        } catch (IOException e) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
+        }
     }
 
     /**
