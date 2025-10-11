@@ -9,7 +9,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.smarthealthdog.backend.dto.EmailVerificationCodeRequest;
 import com.smarthealthdog.backend.dto.LoginRequest;
@@ -29,8 +31,11 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<Void> createUser(@Valid @RequestBody UserCreateRequest request) {
-        authService.registerUser(request);
+    public ResponseEntity<Void> createUser(
+        @RequestPart("request") @Valid UserCreateRequest request,
+        @RequestPart(value = "profilePicture", required = false) MultipartFile profilePicture
+    ) {
+        authService.registerUser(request, profilePicture);
         return ResponseEntity.status(HttpStatus.CREATED).body(null);
     }
 
