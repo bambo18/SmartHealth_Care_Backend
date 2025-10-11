@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -28,6 +29,17 @@ public class GlobalExceptionHandler {
 
     @Autowired
     private ValidErrorCodeFinder validErrorCodeFinder;
+
+    // Spring Security InternalAuthenticationServiceException 예외 처리
+    // 사용자의 정보를 로드할 수 없을 때 발생
+    @ExceptionHandler(InternalAuthenticationServiceException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorMessage handleInternalAuthenticationServiceException(Exception e) {
+        return new ErrorMessage(
+            List.of(ErrorCode.LOGIN_FAILURE.name()),
+            List.of(ErrorCode.LOGIN_FAILURE.getMessage())
+        );
+    }
 
     // JWT 관련 예외 처리 - MalformedJwtException, ExpiredJwtException, UnsupportedJwtException
     @ExceptionHandler(

@@ -26,7 +26,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
@@ -55,7 +55,7 @@ import io.jsonwebtoken.security.Keys;
 
 @TestInstance(Lifecycle.PER_CLASS)
 @SpringBootTest
-@TestPropertySource(locations = "classpath:application-test.properties")
+@ActiveProfiles("test")
 @AutoConfigureMockMvc // Provides MockMvc instance
 public class AuthControllerTest {
     // Test methods would go here

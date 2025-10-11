@@ -2,7 +2,6 @@ package com.smarthealthdog.backend.services;
 
 import java.time.Instant;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -16,7 +15,9 @@ import com.smarthealthdog.backend.utils.TokenGenerator;
 import com.smarthealthdog.backend.validation.ErrorCode;
 
 import jakarta.persistence.EntityManager;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 @Service
 public class EmailVerificationService {
     private final EmailService emailService;
@@ -24,21 +25,6 @@ public class EmailVerificationService {
     private final TokenGenerator tokenGenerator;
     private final PasswordEncoder passwordEncoder;
     private final EntityManager entityManager;
-
-    @Autowired
-    public EmailVerificationService(
-        EmailService emailService, 
-        EmailVerificationRepository emailVerificationRepository,
-        TokenGenerator tokenGenerator,
-        PasswordEncoder passwordEncoder,
-        EntityManager entityManager
-    ) {
-        this.emailService = emailService;
-        this.emailVerificationRepository = emailVerificationRepository;
-        this.tokenGenerator = tokenGenerator;
-        this.passwordEncoder = passwordEncoder;
-        this.entityManager = entityManager;
-    } 
 
     @Value("${app.token.email-verification.expiration.minutes}")
     private int emailVerificationExpiryMinutes;

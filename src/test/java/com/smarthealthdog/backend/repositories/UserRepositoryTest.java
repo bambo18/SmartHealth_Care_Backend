@@ -11,7 +11,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.ActiveProfiles;
 
 import com.smarthealthdog.backend.domain.Permission;
 import com.smarthealthdog.backend.domain.PermissionEnum;
@@ -21,7 +21,7 @@ import com.smarthealthdog.backend.domain.User;
 
 @TestInstance(Lifecycle.PER_CLASS)
 @DataJpaTest
-@TestPropertySource(locations = "classpath:application-test.properties")
+@ActiveProfiles("test")
 class UserRepositoryTest {
     @Autowired
     private UserRepository userRepository;

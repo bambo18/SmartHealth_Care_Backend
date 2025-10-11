@@ -1,0 +1,76 @@
+spring:
+  application:
+    name: backend
+  datasource:
+    url: jdbc:h2:mem:testdb;TIME ZONE=UTC
+    username: sa
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+  mail:
+    host: ${SMTP_HOST}
+    username: ${SMTP_USER}
+    password: ${SMTP_PASSWORD}
+    properties:
+      mail:
+        transport:
+          protocol: smtp
+        smtp:
+          port: 25
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token:
+    expiration:
+      minutes: 15
+  refresh-token:
+    expiration:
+      days: 7
+    max-count: 10
+
+app:
+  mail:
+    from: ${SMTP_FROM}
+  token:
+    email-verification:
+      secret: ${EMAIL_VERIFICATION_SECRET}
+      # 이메일 인증 시도 최대 횟수
+      tries:
+        count: 5
+        duration:
+          days: 1
+      # 이메일 인증 토큰 당 실패 시도 최대 횟수
+      failure:
+        attempts: 5
+      # 이메일 인증 토큰 당 최대 실패 후 잠금 기간 (분)
+      lock:
+        duration:
+          minutes: 30
+      # 이메일 인증 토큰 만료 시간 (분)
+      expiration:
+        minutes: 15
+    password-reset:
+      expiration:
+        minutes: 15
+
+cloud:
+  aws:
+    region:
+      static: ${AWS_REGION}
+    credentials:
+      access-key: ${AWS_ACCESS_KEY}
+      secret-key: ${AWS_SECRET_KEY}
+    s3:
+      bucket: ${AWS_S3_BUCKET}

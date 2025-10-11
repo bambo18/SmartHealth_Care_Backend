@@ -4,7 +4,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -14,6 +13,9 @@ import com.smarthealthdog.backend.domain.RefreshToken;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.repositories.RefreshTokenRepository;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @Service
 public class RefreshTokenCleanupService {
     private final RefreshTokenRepository refreshTokenRepository; 
@@ -25,13 +27,6 @@ public class RefreshTokenCleanupService {
     // 유저 당 최대 리프레시 토큰 개수
     @Value("${jwt.refresh-token.max-count}")
     private Integer maxRefreshTokenCount;
-
-    @Autowired
-    public RefreshTokenCleanupService(
-        RefreshTokenRepository refreshTokenRepository
-    ) {
-        this.refreshTokenRepository = refreshTokenRepository;
-    }
 
     /**
      * 유저의 만료된 리프레시 토큰 삭제

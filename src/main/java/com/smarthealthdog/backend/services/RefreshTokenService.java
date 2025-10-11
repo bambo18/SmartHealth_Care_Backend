@@ -7,7 +7,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +20,9 @@ import com.smarthealthdog.backend.validation.ErrorCode;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 @Service
 public class RefreshTokenService {
     private final RefreshTokenRepository refreshTokenRepository; 
@@ -36,19 +37,6 @@ public class RefreshTokenService {
     // 유저 당 최대 리프레시 토큰 개수
     @Value("${jwt.refresh-token.max-count}")
     private Integer maxRefreshTokenCount;
-
-    @Autowired
-    public RefreshTokenService(
-        RefreshTokenRepository refreshTokenRepository,
-        RefreshTokenCleanupService refreshTokenCleanupService,
-        JWTUtils jwtUtils,
-        UserService userService
-    ) {
-        this.refreshTokenRepository = refreshTokenRepository;
-        this.refreshTokenCleanupService = refreshTokenCleanupService;
-        this.jwtUtils = jwtUtils;
-        this.userService = userService;
-    }
 
     /**
      * 엑세스 토큰 생성

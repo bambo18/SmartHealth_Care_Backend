@@ -2,7 +2,6 @@ package com.smarthealthdog.backend.services;
 
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,26 +13,15 @@ import com.smarthealthdog.backend.exceptions.ForbiddenException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.validation.ErrorCode;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @Service
 public class AuthService {
     private final EmailVerificationService emailVerificationService;
     private final RefreshTokenService refreshTokenService;
     private final RefreshTokenCleanupService refreshTokenCleanupService;
     private final UserService userService;
-
-    @Autowired
-    public AuthService(
-        EmailVerificationService emailVerificationService,
-        RefreshTokenService refreshTokenService,
-        RefreshTokenCleanupService refreshTokenCleanupService,
-        UserService userService
-    ) {
-        this.emailVerificationService = emailVerificationService;
-        this.refreshTokenService = refreshTokenService;
-        this.refreshTokenCleanupService = refreshTokenCleanupService;
-        this.userService = userService;
-    }
-
 
     /**
      * 로그인 시 액세스 토큰과 리프레시 토큰 생성

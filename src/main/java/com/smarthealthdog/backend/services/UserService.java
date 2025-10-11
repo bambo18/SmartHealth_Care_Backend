@@ -3,7 +3,6 @@ package com.smarthealthdog.backend.services;
 import java.time.Instant;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,29 +15,16 @@ import com.smarthealthdog.backend.validation.ErrorCode;
 import com.smarthealthdog.backend.validation.NicknameValidator;
 import com.smarthealthdog.backend.validation.PasswordValidator;
 
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 @Service
 public class UserService {
-    private UserRepository userRepository;
-    private RoleService roleService;
-    private PasswordEncoder passwordEncoder;
-    private PasswordValidator passwordValidator;
-    private NicknameValidator nicknameValidator;
-
-    @Autowired
-    public UserService(
-        UserRepository userRepository, 
-        RoleService roleService,
-        PasswordEncoder passwordEncoder,
-        PasswordValidator passwordValidator,
-        NicknameValidator nicknameValidator
-    ) {
-        this.passwordEncoder = passwordEncoder;
-        this.userRepository = userRepository;
-        this.roleService = roleService;
-        this.passwordValidator = passwordValidator;
-        this.nicknameValidator = nicknameValidator;
-    }
+    private final UserRepository userRepository;
+    private final RoleService roleService;
+    private final PasswordEncoder passwordEncoder;
+    private final PasswordValidator passwordValidator;
+    private final NicknameValidator nicknameValidator;
 
     /**
      * 사용자 비밀번호 확인
