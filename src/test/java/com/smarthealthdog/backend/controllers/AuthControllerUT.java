@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -23,10 +24,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.multipart.MultipartFile;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -216,17 +219,20 @@ class AuthControllerUT {
         UserCreateRequest request = new UserCreateRequest(
                 "testuser", "testuser@example.com", "Password123!", "emailVerificationToken");
 
-        doNothing().when(authService).registerUser(any(UserCreateRequest.class));
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(request).getBytes()
+        );
+
+        doNothing().when(authService).registerUser(any(UserCreateRequest.class), any(MultipartFile.class));
 
         // ACT & ASSERT
-        mockMvc.perform(post(BASE_URL + "/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(toJson(request)))
+        mockMvc.perform(multipart(BASE_URL + "/register")
+                .file(mockFile))
                 .andExpect(status().isCreated())
                 .andExpect(content().string("")); // Response body must be empty for 201
 
         // VERIFY
-        verify(authService, times(1)).registerUser(any(UserCreateRequest.class));
+        verify(authService, times(1)).registerUser(any(UserCreateRequest.class), any());
     }
 
     @Test
@@ -235,126 +241,157 @@ class AuthControllerUT {
         UserCreateRequest invalidRequest = new UserCreateRequest(
                 "testuser", "", "Password123!", "emailVerificationToken");
 
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(invalidRequest).getBytes()
+        );
+
         // ACT & ASSERT
-        mockMvc.perform(post(BASE_URL + "/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(toJson(invalidRequest)))
+        mockMvc.perform(multipart(BASE_URL + "/register")
+                .file(mockFile))
                 .andExpect(status().isBadRequest()); // Expect 400 Bad Request
 
         // VERIFY: AuthService should not be called
-        verify(authService, never()).registerUser(any());
+        verify(authService, never()).registerUser(any(), any());
 
         // If nickname is blank
         UserCreateRequest invalidRequest2 = new UserCreateRequest(
             "", "testuser@example.com", "Password123!", "emailVerificationToken");
 
+        MockMultipartFile mockFile2 = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(invalidRequest2).getBytes()
+        );
+
         // ACT & ASSERT
-        mockMvc.perform(post(BASE_URL + "/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(invalidRequest2)))
+        mockMvc.perform(multipart(BASE_URL + "/register")
+            .file(mockFile2))
             .andExpect(status().isBadRequest()); // Expect 400 Bad Request
 
         // VERIFY: AuthService should not be called
-        verify(authService, never()).registerUser(any());
+        verify(authService, never()).registerUser(any(), any());
 
         // If password is blank
         UserCreateRequest invalidRequest3 = new UserCreateRequest(
             "testuser", "testuser@example.com", "", "emailVerificationToken");
+
+        MockMultipartFile mockFile3 = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(invalidRequest3).getBytes()
+        );
         
         // ACT & ASSERT
-        mockMvc.perform(post(BASE_URL + "/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(invalidRequest3)))
+        mockMvc.perform(multipart(BASE_URL + "/register")
+            .file(mockFile3))
             .andExpect(status().isBadRequest()); // Expect 400 Bad Request
 
         // VERIFY: AuthService should not be called
-        verify(authService, never()).registerUser(any());
+        verify(authService, never()).registerUser(any(), any());
 
         // If emailVerificationToken is blank
         UserCreateRequest invalidRequest4 = new UserCreateRequest(
             "testuser", "testuser@example.com", "Password123!", "");
 
+        MockMultipartFile mockFile4 = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(invalidRequest4).getBytes()
+        );
+
         // ACT & ASSERT
-        mockMvc.perform(post(BASE_URL + "/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(invalidRequest4)))
+        mockMvc.perform(multipart(BASE_URL + "/register")
+            .file(mockFile4))
             .andExpect(status().isBadRequest()); // Expect 400 Bad Request
 
         // VERIFY: AuthService should not be called
-        verify(authService, never()).registerUser(any());
+        verify(authService, never()).registerUser(any(), any());
 
         // If password does not meet complexity requirements
         UserCreateRequest invalidRequest5 = new UserCreateRequest(
             "testuser", "testuser@example.com", "pass", "emailVerificationToken");
 
+        MockMultipartFile mockFile5 = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(invalidRequest5).getBytes()
+        );
+
         // ACT & ASSERT
-        mockMvc.perform(post(BASE_URL + "/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(invalidRequest5)))
+        mockMvc.perform(multipart(BASE_URL + "/register")
+            .file(mockFile5))
             .andExpect(status().isBadRequest()); // Expect 400 Bad Request
 
         // VERIFY: AuthService should not be called
-        verify(authService, never()).registerUser(any());
+        verify(authService, never()).registerUser(any(), any());
 
         // If email format is invalid
         UserCreateRequest invalidRequest6 = new UserCreateRequest(
             "testuser", "invalid-email", "Password123!", "emailVerificationToken");
 
+        MockMultipartFile mockFile6 = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(invalidRequest6).getBytes()
+        );
+
         // ACT & ASSERT
-        mockMvc.perform(post(BASE_URL + "/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(invalidRequest6)))
+        mockMvc.perform(multipart(BASE_URL + "/register")
+            .file(mockFile6))
             .andExpect(status().isBadRequest()); // Expect 400 Bad Request
 
         // VERIFY: AuthService should not be called
-        verify(authService, never()).registerUser(any());
+        verify(authService, never()).registerUser(any(), any());
 
         // If nickname is too short
         UserCreateRequest invalidRequest7 = new UserCreateRequest(
             "ab", "testuser@example.com", "Password123!", "emailVerificationToken");
 
+        MockMultipartFile mockFile7 = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(invalidRequest7).getBytes()
+        );
+
         // ACT & ASSERT
-        mockMvc.perform(post(BASE_URL + "/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(invalidRequest7)))
+        mockMvc.perform(multipart(BASE_URL + "/register")
+            .file(mockFile7))
             .andExpect(status().isBadRequest()); // Expect 400 Bad Request
 
         // VERIFY: AuthService should not be called
-        verify(authService, never()).registerUser(any());
+        verify(authService, never()).registerUser(any(), any());
 
         // If nickname is too long
         UserCreateRequest invalidRequest8 = new UserCreateRequest(
             "a".repeat(129), "testuser@example.com", "Password123!", "emailVerificationToken");
+
+        MockMultipartFile mockFile8 = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(invalidRequest8).getBytes()
+        );
+
         // ACT & ASSERT
-        mockMvc.perform(post(BASE_URL + "/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(invalidRequest8)))
+        mockMvc.perform(multipart(BASE_URL + "/register")
+            .file(mockFile8))
             .andExpect(status().isBadRequest()); // Expect 400 Bad Request
 
         // VERIFY: AuthService should not be called
-        verify(authService, never()).registerUser(any());
+        verify(authService, never()).registerUser(any(), any());
 
         // If password is too short
         UserCreateRequest invalidRequest9 = new UserCreateRequest(
             "testuser", "testuser@example.com", "short", "emailVerificationToken");
 
+        MockMultipartFile mockFile9 = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(invalidRequest9).getBytes()
+        );
+
         // ACT & ASSERT
-        mockMvc.perform(post(BASE_URL + "/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(invalidRequest9)))
+        mockMvc.perform(multipart(BASE_URL + "/register")
+            .file(mockFile9))
             .andExpect(status().isBadRequest()); // Expect 400 Bad Request
 
         // VERIFY: AuthService should not be called
-        verify(authService, never()).registerUser(any());
+        verify(authService, never()).registerUser(any(), any());
 
         // If password is too long
         UserCreateRequest invalidRequest10 = new UserCreateRequest(
             "testuser", "testuser@example.com", "a".repeat(257), "emailVerificationToken");
 
+        MockMultipartFile mockFile10 = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(invalidRequest10).getBytes()
+        );
+
         // ACT & ASSERT
-        mockMvc.perform(post(BASE_URL + "/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(invalidRequest10)))
+        mockMvc.perform(multipart(BASE_URL + "/register")
+            .file(mockFile10))
             .andExpect(status().isBadRequest()); // Expect 400 Bad Request
     }
 }
