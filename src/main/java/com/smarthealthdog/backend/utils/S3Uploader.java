@@ -4,10 +4,14 @@ import java.io.IOException;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
+import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.validation.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
@@ -19,6 +23,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 @Component
 public class S3Uploader {
     private final S3Client s3Client;
+    private final UserRepository userRepository;
 
     @Value("${cloud.aws.s3.bucket}")
     private String bucket;
@@ -27,12 +32,15 @@ public class S3Uploader {
 
     /**
      * S3 버킷에 파일 업로드
-     * @param file
+     * @param filePrefix 파일 접두사 (예: "profiles/")
+     * @param file 업로드할 파일
      * @return 파일 URL
      * @throws IOException
      */
-    public String uploadFile(String filePrefix, MultipartFile file) throws IOException {
-        if (filePrefix == null) {
+    @Async
+    @Transactional
+    public void uploadProfilePicture(User user, MultipartFile file) throws IOException {
+        if (user == null) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
         }
 
@@ -42,7 +50,7 @@ public class S3Uploader {
 
         String ext = file.getOriginalFilename()
                          .substring(file.getOriginalFilename().lastIndexOf("."));
-        String key = filePrefix + UUID.randomUUID() + ext;
+        String key = "profiles/" + UUID.randomUUID() + ext;
 
         s3Client.putObject(
             PutObjectRequest.builder()
@@ -53,6 +61,7 @@ public class S3Uploader {
             RequestBody.fromBytes(file.getBytes())
         );
 
-        return "https://" + bucket + ".s3." + region + ".amazonaws.com/" + key;
+        user.setProfilePic(key);
+        userRepository.save(user);
     }
 }
