@@ -5,12 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 
 import javax.crypto.SecretKey;
@@ -24,7 +26,9 @@ import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -49,6 +53,7 @@ import com.smarthealthdog.backend.services.EmailService;
 import com.smarthealthdog.backend.services.EmailVerificationService;
 import com.smarthealthdog.backend.services.UserService;
 import com.smarthealthdog.backend.utils.JWTUtils;
+import com.smarthealthdog.backend.utils.S3Uploader;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -92,6 +97,8 @@ public class AuthControllerTest {
     @MockitoBean
     private EmailService emailService;
 
+    @MockitoBean
+    private S3Uploader s3Uploader;
 
     SecretKey key;
 
@@ -233,9 +240,12 @@ public class AuthControllerTest {
             token
         );
 
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(createRequest)))
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(createRequest).getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile))
             .andExpect(status().isCreated());
 
         // Now, attempt to login with incorrect password
@@ -267,9 +277,12 @@ public class AuthControllerTest {
             token
         );
 
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(createRequest)))
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(createRequest).getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile))
             .andExpect(status().isCreated());
 
         // Now, attempt to login with correct credentials
@@ -384,9 +397,13 @@ public class AuthControllerTest {
             "Password123!",
             token
         );
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(createRequest)))
+
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(createRequest).getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile))
             .andExpect(status().isCreated());
 
         // 로그인하여 토큰 발급
@@ -531,9 +548,13 @@ public class AuthControllerTest {
             "Password123!",
             token
         );
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(createRequest)))
+
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(createRequest).getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile))
             .andExpect(status().isCreated());
 
         Optional<User> userOpt = userRepository.findByEmail("refreshtestuser@example.com");
@@ -582,9 +603,12 @@ public class AuthControllerTest {
             "000000"
         );
 
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(invalidEmailRequest)))
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(invalidEmailRequest).getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile))
             .andExpect(status().isBadRequest());
 
         // Blank nickname
@@ -595,9 +619,12 @@ public class AuthControllerTest {
             "000000"
         );
 
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(blankNicknameRequest)))
+        MockMultipartFile mockFile2 = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(blankNicknameRequest).getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile2))
             .andExpect(status().isBadRequest());
 
         // Blank password
@@ -608,9 +635,12 @@ public class AuthControllerTest {
             "000000"
         );
 
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(blankPasswordRequest)))
+        MockMultipartFile mockFile3 = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(blankPasswordRequest).getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile3))
             .andExpect(status().isBadRequest());
 
         // Blank email verification token
@@ -621,9 +651,12 @@ public class AuthControllerTest {
             ""
         );
 
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(blankTokenRequest)))
+        MockMultipartFile mockFile4 = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(blankTokenRequest).getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile4))
             .andExpect(status().isBadRequest());
     }
 
@@ -652,9 +685,12 @@ public class AuthControllerTest {
             "000000"
         );
 
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(createRequest)))
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(createRequest).getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile))
             .andExpect(status().isBadRequest());
 
         Optional<User> userOpt = userRepository.findByEmail("testuser@example.com");
@@ -688,9 +724,12 @@ public class AuthControllerTest {
             token
         );
 
-        mockMvc.perform(post("/api/auth/register")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(createRequest)))
+        MockMultipartFile mockFile2 = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(createRequest).getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile2))
             .andExpect(status().isCreated());
 
         Optional<User> userOpt = userRepository.findByEmail("testuser@example.com");
@@ -705,5 +744,124 @@ public class AuthControllerTest {
 
         EmailVerification evOpt = emailVerificationRepository.findByEmail("testuser@example.com").orElse(null);
         assertTrue(evOpt == null); // 이메일 인증 레코드가 삭제되었는지 확인
+    }
+
+    @Test
+    void registerUser_ShouldReturn400BadRequest_WhenImageIsInvalid() throws Exception {
+        Instant now = Instant.now();
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("testuser@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationRequestedAt(now)
+            .emailVerificationExpiry(now.plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
+        String BASE_URL = "/api/auth";
+
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "testuser",
+            "testuser@example.com",
+            "Password123!",
+            token
+        );
+
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(createRequest).getBytes()
+        );
+
+        MockMultipartFile invalidImageFile = new MockMultipartFile(
+            "profilePicture", "profile.txt", MediaType.TEXT_PLAIN_VALUE, "This is not a valid image file".getBytes()
+        );
+
+        // ACT & ASSERT
+        mockMvc.perform(multipart(BASE_URL + "/register")
+            .file(mockFile)
+            .file(invalidImageFile))
+            .andExpect(status().isBadRequest());
+        
+        // VERIFY: AuthService should not be called
+        Optional<User> userOpt = userRepository.findByEmail("testuser@example.com");
+        assertTrue(userOpt.isEmpty());
+        EmailVerification evOpt = emailVerificationRepository.findByEmail("testuser@example.com").orElse(null);
+        assertTrue(evOpt != null); // 이메일 인증 레코드가 삭제되지 않았는지 확인
+
+        // Try with an image with the right extension but invalid content
+        MockMultipartFile fakeImageFile = new MockMultipartFile(
+            "profilePicture", "profile.jpg", MediaType.IMAGE_JPEG_VALUE, "This is not a valid image content".getBytes()
+        );
+
+        // ACT & ASSERT
+        mockMvc.perform(multipart(BASE_URL + "/register")
+            .file(mockFile)
+            .file(fakeImageFile))
+            .andExpect(status().isBadRequest());
+
+        // VERIFY: AuthService should not be called
+        userOpt = userRepository.findByEmail("testuser@example.com");
+        assertTrue(userOpt.isEmpty());
+        evOpt = emailVerificationRepository.findByEmail("testuser@example.com").orElse(null);
+        assertTrue(evOpt != null); // 이메일 인증 레코드가 삭제되지 않았는지 확인
+
+        // Try with an image that exceeds the size limit (e.g., 6MB)
+        byte[] largeImage = new byte[6 * 1024 * 1024]; // 6MB
+        new Random().nextBytes(largeImage); // Fill with random bytes
+
+        MockMultipartFile largeImageFile = new MockMultipartFile(
+            "profilePicture", "large_image.jpg", MediaType.IMAGE_JPEG_VALUE, largeImage
+        );
+        // ACT & ASSERT
+        mockMvc.perform(multipart(BASE_URL + "/register")
+            .file(mockFile)
+            .file(largeImageFile))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void registerUser_ShouldReturn201Created_WhenImageIsValid() throws Exception {
+        Instant now = Instant.now();
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("testuser@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationRequestedAt(now)
+            .emailVerificationExpiry(now.plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
+
+        // Mock S3Uploader to return a fixed URL
+        ClassPathResource resource = new ClassPathResource("test-image.jpg");
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "testuser",
+            "testuser@example.com",
+            "Password123!",
+            token
+        );
+
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(createRequest).getBytes()
+        );
+
+        MockMultipartFile validImageFile = new MockMultipartFile(
+            "profilePicture", "test-image.jpg", MediaType.IMAGE_JPEG_VALUE, resource.getInputStream()
+        );
+
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile)
+            .file(validImageFile))
+            .andExpect(status().isCreated());
+
+        Optional<User> userOpt = userRepository.findByEmail("testuser@example.com");
+        assertTrue(userOpt.isPresent());
+        User user = userOpt.get();
+        assertTrue(user.getRole().getName() == RoleEnum.USER);
+        assertNotNull(user.getPassword());
+        assertTrue(!user.getPassword().isEmpty());
+        assertTrue(!user.getPassword().equals("Password123!")); // Password should be hashed
+        assertTrue(userService.checkUserPassword(user, "Password123!"));
     }
 }

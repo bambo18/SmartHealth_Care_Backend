@@ -67,7 +67,7 @@ public enum PermissionEnum {
         return Arrays.stream(PermissionEnum.values())
             .filter(permission -> permission.getName().equals(value))
             .findFirst()
-            .orElseThrow(IllegalArgumentException::new);
+            .orElseThrow(() -> new IllegalArgumentException("해당 권한이 없습니다: " + value));
     }
 
     /**

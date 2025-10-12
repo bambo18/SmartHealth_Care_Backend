@@ -71,7 +71,7 @@ class AuthServiceUT {
             .thenReturn(expectedUser);
 
         // ACT
-        authService.registerUser(mockRequest);
+        authService.registerUser(mockRequest, null);
 
         // 3. VERIFY: Assert that the AuthService correctly delegated the call 
         // to the UserService with the exact arguments from the request.

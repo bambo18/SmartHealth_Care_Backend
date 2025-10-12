@@ -131,7 +131,7 @@ public class AuthServiceTest {
         );
 
         // Act
-        authService.registerUser(createRequest);
+        authService.registerUser(createRequest, null);
 
         // Assert
         User createdUser = userRepository.findByEmail("test@example.com").orElse(null);
@@ -157,7 +157,7 @@ public class AuthServiceTest {
 
         // Act & Assert
         assertThrows(InvalidRequestDataException.class, () -> {
-            authService.registerUser(createRequest);
+            authService.registerUser(createRequest, null);
         });
 
         UserCreateRequest createRequest2 = new UserCreateRequest(
@@ -169,7 +169,7 @@ public class AuthServiceTest {
 
         // Act & Assert
         assertThrows(InvalidRequestDataException.class, () -> {
-            authService.registerUser(createRequest2);
+            authService.registerUser(createRequest2, null);
         });
     }
 
@@ -192,9 +192,9 @@ public class AuthServiceTest {
         );
 
         // Act & Assert
-        authService.registerUser(createRequest1);
+        authService.registerUser(createRequest1, null);
         assertThrows(InvalidRequestDataException.class, () -> {
-            authService.registerUser(createRequest1);
+            authService.registerUser(createRequest1, null);
         });
     }
 
@@ -209,7 +209,7 @@ public class AuthServiceTest {
 
         // Act & Assert
         assertThrows(InvalidRequestDataException.class, () -> {
-            authService.registerUser(createRequest);
+            authService.registerUser(createRequest, null);
         });
 
         UserCreateRequest createRequest2 = new UserCreateRequest(
@@ -221,7 +221,7 @@ public class AuthServiceTest {
 
         // Act & Assert
         assertThrows(InvalidRequestDataException.class, () -> {
-            authService.registerUser(createRequest2);
+            authService.registerUser(createRequest2, null);
         });
 
         UserCreateRequest createRequest3 = new UserCreateRequest(
@@ -233,7 +233,7 @@ public class AuthServiceTest {
 
         // Act & Assert
         assertThrows(InvalidRequestDataException.class, () -> {
-            authService.registerUser(createRequest3);
+            authService.registerUser(createRequest3, null);
         });
     
         UserCreateRequest createRequest4 = new UserCreateRequest(
@@ -245,7 +245,7 @@ public class AuthServiceTest {
 
         // Act & Assert
         assertThrows(InvalidRequestDataException.class, () -> {
-            authService.registerUser(createRequest4);
+            authService.registerUser(createRequest4, null);
         });
 
         UserCreateRequest createRequest5 = new UserCreateRequest(
@@ -257,7 +257,7 @@ public class AuthServiceTest {
 
         // Act & Assert
         assertThrows(InvalidRequestDataException.class, () -> {
-            authService.registerUser(createRequest5);
+            authService.registerUser(createRequest5, null);
         });
 
         UserCreateRequest createRequest6 = new UserCreateRequest(
@@ -269,7 +269,7 @@ public class AuthServiceTest {
 
         // Act & Assert
         assertThrows(InvalidRequestDataException.class, () -> {
-            authService.registerUser(createRequest6);
+            authService.registerUser(createRequest6, null);
         });
     }
 
@@ -294,7 +294,7 @@ public class AuthServiceTest {
         // Act & Assert
         for (int i = 0 ; i < 5 ; i++) {
             assertThrows(InvalidRequestDataException.class, () -> {
-                authService.registerUser(createRequest);
+                authService.registerUser(createRequest, null);
             });
 
             // Check to make sure the fail count is incremented
@@ -333,7 +333,7 @@ public class AuthServiceTest {
         );
 
         // Act
-        authService.registerUser(createRequest);
+        authService.registerUser(createRequest, null);
         User user = userRepository.findByEmail("test@example.com").orElse(null);
         assertNotNull(user);
 
@@ -364,7 +364,7 @@ public class AuthServiceTest {
         );
 
         // Act
-        authService.registerUser(createRequest);
+        authService.registerUser(createRequest, null);
         User user = userRepository.findByEmail("test@example.com").orElse(null);
         assertNotNull(user);
 
@@ -404,7 +404,7 @@ public class AuthServiceTest {
         );
 
         // Act
-        authService.registerUser(createRequest);
+        authService.registerUser(createRequest, null);
         User user = userRepository.findByEmail("test@example.com").orElse(null);
         assertNotNull(user);
 
@@ -474,7 +474,7 @@ public class AuthServiceTest {
         );
 
         // Act
-        authService.registerUser(createRequest);
+        authService.registerUser(createRequest, null);
         User user = userRepository.findByEmail("test@example.com").orElse(null);
         assertNotNull(user);
 
@@ -526,7 +526,7 @@ public class AuthServiceTest {
         );
 
         // Act
-        authService.registerUser(createRequest);
+        authService.registerUser(createRequest, null);
         User user = userRepository.findByEmail("test@example.com").orElse(null);
         assertNotNull(user);
 

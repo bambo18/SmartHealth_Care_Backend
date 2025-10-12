@@ -155,7 +155,7 @@ public class EmailVerificationService {
 
         EmailVerification emailVerification = emailVerificationRepository.findByEmail(email).orElse(null);
         if (emailVerification == null) {
-            throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
+            throw new InvalidRequestDataException(ErrorCode.INVALID_JWT);
         }
 
         // 잠금 상태인지 확인
