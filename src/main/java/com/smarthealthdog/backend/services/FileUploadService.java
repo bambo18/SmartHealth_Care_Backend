@@ -55,7 +55,7 @@ public class FileUploadService {
 
         // MIME 타입 검사
         try {
-            boolean isValidImageFile = FileUtils.isValidImageFile(file.getInputStream());
+            boolean isValidImageFile = FileUtils.isMIMEImage(file.getInputStream());
             if (!isValidImageFile) {
                 throw new IllegalArgumentException("유효하지 않은 이미지 파일");
             }

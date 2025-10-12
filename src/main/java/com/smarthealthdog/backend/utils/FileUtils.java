@@ -21,7 +21,7 @@ public class FileUtils {
      * @throws IOException
      * @throws IllegalArgumentException ioStream이 null인 경우 발생
      */
-    public static boolean isValidImageFile(InputStream ioStream) throws IOException, IllegalArgumentException {
+    public static boolean isMIMEImage(InputStream ioStream) throws IOException, IllegalArgumentException {
         if (ioStream == null) {
             throw new IllegalArgumentException("Input stream is null");
         }
