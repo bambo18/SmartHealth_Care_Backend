@@ -14,6 +14,9 @@ build/
 .springBeans
 .sts4-cache
 bin/
+uploads/
+database/
+localstack/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 
@@ -35,3 +38,6 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### auto-generated files ###
+src/main/resources/schema.sql
