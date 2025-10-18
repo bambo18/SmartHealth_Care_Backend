@@ -25,7 +25,8 @@ import java.util.List;
 
 @Component
 public class JWTTokenFilter extends OncePerRequestFilter {
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Autowired
     private RefreshTokenService refreshTokenService;
