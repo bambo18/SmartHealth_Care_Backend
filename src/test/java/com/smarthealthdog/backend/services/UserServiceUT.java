@@ -1,8 +1,10 @@
 package com.smarthealthdog.backend.services;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -17,6 +19,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
+import com.smarthealthdog.backend.dto.UserProfile;
+import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.validation.NicknameValidator;
 import com.smarthealthdog.backend.validation.PasswordValidator;
@@ -48,10 +52,6 @@ public class UserServiceUT {
     void setUp() {
         // Initialization if needed
         // Create roles
-        unverifiedRole = new Role();
-        unverifiedRole.setId((short)1);
-        unverifiedRole.setName(RoleEnum.UNVERIFIED_USER);
-
         userRole = new Role();
         userRole.setId((short)2);
         userRole.setName(RoleEnum.USER);
@@ -138,6 +138,41 @@ public class UserServiceUT {
 
         // ASSERT: Verify the email verification expiry has been set to now
         assertTrue(user.getEmailVerificationExpiry() != null);
+    }
+
+    @Test
+    public void getUserProfileById_ShouldThrowException_WhenUserNotFound() {
+        Long nonExistentUserId = 999L;
+
+        // Arrange
+        when(userRepository.findById(nonExistentUserId)).thenReturn(java.util.Optional.empty());
+
+        // Act & Assert
+        assertThrows(ResourceNotFoundException.class, () -> {
+            userService.getUserProfileById(nonExistentUserId);
+        });
+    }
+
+    @Test
+    public void getUserProfileById_ShouldReturnUserProfile_WhenUserExists() {
+        Long existingUserId = 1L;
+        User mockUser = mock(User.class);
+        when(mockUser.getId()).thenReturn(existingUserId);
+        when(mockUser.getNickname()).thenReturn("testNickname");
+        when(mockUser.getEmail()).thenReturn("testEmail@example.com");
+        when(mockUser.getProfilePic()).thenReturn("profilePicUrl");
+
+        // Arrange
+        when(userRepository.findById(existingUserId)).thenReturn(java.util.Optional.of(mockUser));
+
+        // Act
+        UserProfile userProfile = userService.getUserProfileById(existingUserId);
+
+        // Assert
+        assertTrue(userProfile.id().equals(existingUserId));
+        assertTrue(userProfile.nickname().equals("testNickname"));
+        assertTrue(userProfile.email().equals("testEmail@example.com"));
+        assertTrue(userProfile.profileImgUrl().equals("profilePicUrl"));
     }
 
     @Test

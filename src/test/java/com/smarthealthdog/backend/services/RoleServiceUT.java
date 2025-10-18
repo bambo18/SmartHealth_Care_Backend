@@ -30,57 +30,16 @@ class RoleServiceUT {
     private RoleService roleService;
     
     // Test Role objects
-    private Role unverifiedUserRole;
     private Role userRole;
 
     @BeforeEach
     void setUp() {
         // Initialize predictable Role objects
-        unverifiedUserRole = new Role();
-        unverifiedUserRole.setId((short) 1L);
-        unverifiedUserRole.setName(RoleEnum.UNVERIFIED_USER);
-        unverifiedUserRole.setDescription("Role for unverified users");
 
         userRole = new Role();
         userRole.setId((short) 2L);
         userRole.setName(RoleEnum.USER);
         userRole.setDescription("Role for regular users");
-    }
-
-    // --- Tests for getUnverifiedUserRole() ---
-
-    @Test
-    void getUnverifiedUserRole_ShouldReturnRole_WhenRoleExists() {
-        // ARRANGE: Define the mock behavior
-        when(roleRepository.findByName(RoleEnum.UNVERIFIED_USER))
-            .thenReturn(Optional.of(unverifiedUserRole));
-
-        // ACT
-        Role result = roleService.getUnverifiedUserRole();
-
-        // ASSERT
-        assertEquals(RoleEnum.UNVERIFIED_USER, result.getName(), 
-                     "The returned role should be UNVERIFIED_USER.");
-        
-        // VERIFY: Ensure the repository method was called exactly once
-        verify(roleRepository).findByName(RoleEnum.UNVERIFIED_USER);
-    }
-
-    @Test
-    void getUnverifiedUserRole_ShouldThrowRuntimeException_WhenRoleNotFound() {
-        // ARRANGE: Define the mock behavior for a not found scenario
-        when(roleRepository.findByName(RoleEnum.UNVERIFIED_USER))
-            .thenReturn(Optional.empty());
-
-        // ACT & ASSERT: Expect a RuntimeException to be thrown
-        RuntimeException exception = assertThrows(RuntimeException.class, 
-            () -> roleService.getUnverifiedUserRole(),
-            "Should throw RuntimeException when role is not found.");
-
-        assertEquals("Role 'UNVERIFIED_USER' not found", exception.getMessage());
-        
-        // VERIFY: Ensure the repository method was called
-        verify(roleRepository).findByName(RoleEnum.UNVERIFIED_USER);
     }
 
     // --- Tests for getUserRole() ---

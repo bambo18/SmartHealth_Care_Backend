@@ -70,8 +70,8 @@ public class CustomUserDetailsServiceTest {
         );
 
         Permission loginPermission = new Permission();
-        loginPermission.setName(PermissionEnum.CAN_LOGIN);
-        loginPermission.setDescription("Can login to the system");
+        loginPermission.setName(PermissionEnum.CAN_RESET_PASSWORD);
+        loginPermission.setDescription("Can reset password");
         permissionRepository.save(loginPermission);
 
         Permission startWalkPermission = new Permission();

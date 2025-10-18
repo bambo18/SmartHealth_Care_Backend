@@ -30,8 +30,8 @@ class RefreshTokenRepositoryTest {
     @BeforeEach
     void setUp() {
         Role role = new Role();
-        role.setName(RoleEnum.UNVERIFIED_USER);
-        role.setDescription("Role for unverified users");
+        role.setName(RoleEnum.USER);
+        role.setDescription("Role for regular users");
         roleRepository.save(role);
 
         testUser = new User();

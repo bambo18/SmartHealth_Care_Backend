@@ -25,7 +25,7 @@ class RoleRepositoryTest {
     void setUp() {
         // 1. Create a new Role instance
         Role role = new Role(); // Use your Role constructor/setter
-        role.setName(RoleEnum.UNVERIFIED_USER);
+        role.setName(RoleEnum.USER);
         role.setDescription("Role for unverified users");
 
         roleRepository.save(role);
@@ -37,10 +37,10 @@ class RoleRepositoryTest {
     @Test
     void findByName_ShouldReturnRole_WhenNameExists() {
         // Act
-        Optional<Role> foundRole = roleRepository.findByName(RoleEnum.UNVERIFIED_USER);
+        Optional<Role> foundRole = roleRepository.findByName(RoleEnum.USER);
 
         // Assert
         assertTrue(foundRole.isPresent());
-        assertEquals(RoleEnum.UNVERIFIED_USER, foundRole.get().getName());
+        assertEquals(RoleEnum.USER, foundRole.get().getName());
     }
 }
