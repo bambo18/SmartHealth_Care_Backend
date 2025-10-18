@@ -127,7 +127,7 @@ public class AuthService {
 
     @Transactional
     public void sendEmailVerification(String email) {
-        userService.getUserByEmail(email).ifPresent(user -> {
+        userService.getUserByEmail(email).ifPresent(_ -> {
             throw new ForbiddenException(ErrorCode.EMAIL_VERIFICATION_FAIL_COUNT_EXCEEDED);
         });
 
