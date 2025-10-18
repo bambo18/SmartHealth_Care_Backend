@@ -47,7 +47,7 @@ public class CustomUserDetailsService implements UserDetailsService {
             }
 
             // 밴되거나 삭제된 유저는 로그인 불가
-            if (user.getRole().getName() == RoleEnum.BANNED_USER && 
+            if (user.getRole().getName() == RoleEnum.BANNED_USER ||
                 user.getRole().getName() == RoleEnum.DELETED_USER) {
                 throw new BadCredentialsException(ErrorCode.LOGIN_FAILURE);
             }
