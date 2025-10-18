@@ -77,11 +77,6 @@ public class AuthServiceTest {
             10
         );
 
-        Role unverifiedRole = new Role();
-        unverifiedRole.setName(RoleEnum.UNVERIFIED_USER);
-        unverifiedRole.setDescription("Unverified user role");
-        roleRepository.save(unverifiedRole);
-
         Role userRole = new Role();
         userRole.setName(RoleEnum.USER);
         userRole.setDescription("Regular user role");
@@ -422,6 +417,7 @@ public class AuthServiceTest {
 
         List<RefreshToken> updatedTokens = refreshTokenRepository.findByUser(user);
         assertEquals(10, updatedTokens.size(), "Total refresh tokens should still be 10 after enforcement");
+
         // Compare both lists by creating two sets of token IDs
         Set<UUID> originalTokenIds = tokens.stream()
             .map(RefreshToken::getId)

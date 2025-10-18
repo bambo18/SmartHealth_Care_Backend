@@ -53,7 +53,7 @@ class EmailServiceUT {
         ReflectionTestUtils.setField(emailService, "emailVerificationExpiryMinutes", TEST_EXPIRY_MINUTES);
 
         Role role = new Role();
-        role.setName(RoleEnum.UNVERIFIED_USER);
+        role.setName(RoleEnum.USER);
 
         // Create a user object for testing
         testUser = new User();

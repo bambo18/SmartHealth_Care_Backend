@@ -4,8 +4,6 @@ import java.util.Arrays;
 
 public enum PermissionEnum {
     // --- Basic Account Management Permissions ---
-    CAN_LOGIN("can_login", "사용자 로그인"),
-    CAN_REISSUE_TOKEN("can_reissue_token", "인증 토큰 재발급"),
     CAN_RESET_PASSWORD("can_reset_password", "비밀번호 재설정"),
     CAN_DEACTIVATE_ACCOUNT("can_deactivate_account", "계정 비활성화"),
     CAN_REACTIVATE_ACCOUNT("can_reactivate_account", "계정 재활성화"),

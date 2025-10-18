@@ -95,15 +95,15 @@ public class RefreshTokenServiceTest {
             "test-email-verification-secret"
         );
 
-        Permission loginPermission = new Permission();
-        loginPermission.setName(PermissionEnum.CAN_LOGIN);
-        loginPermission.setDescription("Can log in");
-        permissionRepository.save(loginPermission);
+        Permission resetPasswordPermission = new Permission();
+        resetPasswordPermission.setName(PermissionEnum.CAN_RESET_PASSWORD);
+        resetPasswordPermission.setDescription("Can reset password");
+        permissionRepository.save(resetPasswordPermission);
 
         Role userRole = new Role();
         userRole.setName(RoleEnum.USER);
         userRole.setDescription("Verified User");
-        userRole.setPermissions(Set.of(loginPermission));
+        userRole.setPermissions(Set.of(resetPasswordPermission));
         roleRepository.save(userRole);
 
         // Create an email verification entry

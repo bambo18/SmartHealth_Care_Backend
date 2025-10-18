@@ -39,8 +39,8 @@ class UserRepositoryTest {
     void setUp() {
         // 1. Create a new Role instance
         Role role = new Role(); // Use your Role constructor/setter
-        role.setName(RoleEnum.UNVERIFIED_USER);
-        role.setDescription("Role for unverified users");
+        role.setName(RoleEnum.USER);
+        role.setDescription("Role for regular users");
 
         // 2. Persist the Role to the database
         this.testRole = roleRepository.save(role);
@@ -50,8 +50,8 @@ class UserRepositoryTest {
 
         // 3. Create permissions and associate them with the role if needed
         Permission perm1 = new Permission();
-        perm1.setName(PermissionEnum.CAN_LOGIN);
-        perm1.setDescription("Permission to log in");
+        perm1.setName(PermissionEnum.CAN_RESET_PASSWORD);
+        perm1.setDescription("Permission to reset password");
         permissionRepository.save(perm1);
 
         role.setPermissions(new java.util.HashSet<>());
@@ -208,6 +208,6 @@ class UserRepositoryTest {
         assertEquals(savedUser.getRole(), foundUser.get().getRole());
         assertTrue(foundUser.get().getRole().getPermissions().containsAll(this.testRole.getPermissions()));        
         assertTrue(foundUser.get().getRole().getPermissions().size() > 0);
-        assertEquals(foundUser.get().getRole().getPermissions().iterator().next().getName(), PermissionEnum.CAN_LOGIN);
+        assertEquals(foundUser.get().getRole().getPermissions().iterator().next().getName(), PermissionEnum.CAN_RESET_PASSWORD);
     }
 }

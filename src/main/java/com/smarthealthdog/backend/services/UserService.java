@@ -11,7 +11,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.User;
+import com.smarthealthdog.backend.dto.UserProfile;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
+import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.validation.ErrorCode;
 import com.smarthealthdog.backend.validation.NicknameValidator;
@@ -109,19 +111,43 @@ public class UserService {
         userRepository.save(user);
     }
 
+    /**
+     * ID로 사용자 프로필 조회
+     * @param id
+     * @return 사용자 프로필
+     * @throws ResourceNotFoundException 사용자가 존재하지 않을 경우 발생
+     */
+    public UserProfile getUserProfileById(Long id) {
+        // Logic to retrieve a user profile by ID
+        User user = userRepository.findById(id).orElseThrow(
+            () -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        return new UserProfile(
+            user.getId(),
+            user.getNickname(),
+            user.getEmail(),
+            user.getProfilePic()
+        );
+    }
+
+    /**
+     * ID로 사용자 조회
+     * @param id
+     * @return 사용자 객체
+     */
     public Optional<User> getUserById(Long id) {
         // Logic to retrieve a user by ID
         return userRepository.findById(id);
     }
 
+    /**
+     * 이메일로 사용자 조회
+     * @param email
+     * @return 사용자 객체
+     */
     public Optional<User> getUserByEmail(String email) {
         // Logic to retrieve a user by email
         return userRepository.findByEmail(email);
-    }
-
-    public Optional<User> getUserByNickname(String nickname) {
-        // Logic to retrieve a user by nickname
-        return userRepository.findByNickname(nickname);
     }
 
     /**
