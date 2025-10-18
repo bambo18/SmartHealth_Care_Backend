@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -12,15 +13,20 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smarthealthdog.backend.dto.ErrorMessage;
 import com.smarthealthdog.backend.exceptions.BadCredentialsException;
 import com.smarthealthdog.backend.services.CustomUserDetailsService;
 import com.smarthealthdog.backend.services.RefreshTokenService;
 import com.smarthealthdog.backend.validation.ErrorCode;
 
 import java.io.IOException;
+import java.util.List;
 
 @Component
 public class JWTTokenFilter extends OncePerRequestFilter {
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @Autowired
     private RefreshTokenService refreshTokenService;
 
@@ -50,7 +56,30 @@ public class JWTTokenFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception e) {
-            throw new BadCredentialsException(ErrorCode.LOGIN_FAILURE);
+            if (BadCredentialsException.class.equals(e.getClass()) || e.getCause() instanceof BadCredentialsException) {
+                BadCredentialsException ex = (BadCredentialsException) (e.getCause() != null ? e.getCause() : e);
+
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                // write to response
+                response.getWriter().write(objectMapper.writeValueAsString(
+                    new ErrorMessage(
+                        List.of(ex.getErrorCode().name()),
+                        List.of(ex.getErrorCode().getMessage())
+                    )
+                ));
+            } else {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                response.setContentType("application/json");
+                response.getWriter().write(objectMapper.writeValueAsString(
+                    new ErrorMessage(
+                        List.of(ErrorCode.INTERNAL_SERVER_ERROR.name()),
+                        List.of(ErrorCode.INTERNAL_SERVER_ERROR.getMessage())
+                    )
+                )); 
+            }
+
+            return;
         }
 
         filterChain.doFilter(request, response);
