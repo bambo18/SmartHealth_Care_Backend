@@ -42,6 +42,7 @@ import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.EmailVerificationCodeRequest;
+import com.smarthealthdog.backend.dto.LoginRequest;
 import com.smarthealthdog.backend.dto.LoginResponse;
 import com.smarthealthdog.backend.dto.RefreshTokenRequest;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
@@ -111,11 +112,20 @@ public class AuthControllerTest {
         doNothing().when(emailService).sendEmailVerification(anyString(), anyString(), any(EmailVerification.class));
 
         // Runs once before all tests
-        Role unverifiedRole = new Role();
-        unverifiedRole.setName(RoleEnum.UNVERIFIED_USER);
-        unverifiedRole.setDescription("Role for unverified users");
+        Role bannedRole = new Role();
+        bannedRole.setName(RoleEnum.BANNED_USER);
+        bannedRole.setDescription("Banned user role");
+        roleRepository.save(bannedRole);
 
-        roleRepository.save(unverifiedRole);
+        Role socialUserRole = new Role();
+        socialUserRole.setName(RoleEnum.SOCIAL_ACCOUNT_USER);
+        socialUserRole.setDescription("Social account user role");
+        roleRepository.save(socialUserRole);
+
+        Role deletedUserRole = new Role();
+        deletedUserRole.setName(RoleEnum.DELETED_USER);
+        deletedUserRole.setDescription("Deleted user role");
+        roleRepository.save(deletedUserRole);
 
         Role userRole = new Role();
         userRole.setName(RoleEnum.USER);
@@ -195,7 +205,7 @@ public class AuthControllerTest {
 
         mockMvc.perform(post("/api/auth/login")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(invalidEmail, password))))
+            .content(toJson(new LoginRequest(invalidEmail, password))))
             .andExpect(status().isBadRequest());
     }
 
@@ -206,7 +216,7 @@ public class AuthControllerTest {
 
         mockMvc.perform(post("/api/auth/login")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(blankEmail, password))))
+            .content(toJson(new LoginRequest(blankEmail, password))))
             .andExpect(status().isBadRequest());
     }
 
@@ -216,7 +226,7 @@ public class AuthControllerTest {
         String blankPassword = "";
         mockMvc.perform(post("/api/auth/login")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(email, blankPassword))))
+            .content(toJson(new LoginRequest(email, blankPassword))))
             .andExpect(status().isBadRequest());
     }
 
@@ -253,7 +263,152 @@ public class AuthControllerTest {
         String wrongPassword = "WrongPassword!";
         mockMvc.perform(post("/api/auth/login")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(email, wrongPassword))))
+            .content(toJson(new LoginRequest(email, wrongPassword))))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void authenticateUser_ShouldReturn401Unauthorized_WhenBannedUser() throws Exception {
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("validuser@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
+
+        // First, create a user
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "validuser",
+            "validuser@example.com",
+            "Password123!",
+            token
+        );
+
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(createRequest).getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile))
+            .andExpect(status().isCreated());
+
+        // Ban the user
+        User user = userRepository.findByEmail("validuser@example.com").orElseThrow();
+        Role bannedRole = roleRepository.findByName(RoleEnum.BANNED_USER).orElseThrow();
+
+        user.setRole(bannedRole);
+        userRepository.save(user);
+
+        userRepository.flush();
+
+        User bannedUser = userRepository.findByEmail("validuser@example.com").orElseThrow();
+        assertTrue(bannedUser.getRole().getName() == RoleEnum.BANNED_USER);
+
+        // Now, attempt to login with correct credentials
+        String email = "validuser@example.com";
+        String password = "Password123!";
+        mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new LoginRequest(email, password))))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void authenticateUser_ShouldReturn401Unauthorized_WhenSocialUser() throws Exception {
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("validuser@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
+
+        // First, create a user
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "validuser",
+            "validuser@example.com",
+            "Password123!",
+            token
+        );
+
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(createRequest).getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile))
+            .andExpect(status().isCreated());
+
+        // Change the user role to SOCIAL_ACCOUNT_USER
+        User user = userRepository.findByEmail("validuser@example.com").orElseThrow();
+        Role socialUserRole = roleRepository.findByName(RoleEnum.SOCIAL_ACCOUNT_USER).orElseThrow();
+        user.setRole(socialUserRole);
+        userRepository.save(user);
+
+        userRepository.flush();
+
+        User socialUser = userRepository.findByEmail("validuser@example.com").orElseThrow();
+        assertTrue(socialUser.getRole().getName() == RoleEnum.SOCIAL_ACCOUNT_USER);
+
+        // Now, attempt to login with correct credentials
+        String email = "validuser@example.com";
+        String password = "Password123!";
+        mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new LoginRequest(email, password))))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void authenticateUser_ShouldReturn401Unauthorized_WhenDeletedUser() throws Exception {
+        String token = "000000";
+        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("validuser@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
+
+        // First, create a user
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "validuser",
+            "validuser@example.com",
+            "Password123!",
+            token
+        );
+
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(createRequest).getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile))
+            .andExpect(status().isCreated());
+
+        // Change the user role to DELETED_USER
+        User user = userRepository.findByEmail("validuser@example.com").orElseThrow();
+        Role deletedUserRole = roleRepository.findByName(RoleEnum.DELETED_USER).orElseThrow();
+        user.setRole(deletedUserRole);
+        userRepository.save(user);
+
+        userRepository.flush();
+
+        User deletedUser = userRepository.findByEmail("validuser@example.com").orElseThrow();
+        assertTrue(deletedUser.getRole().getName() == RoleEnum.DELETED_USER);
+
+        // Now, attempt to login with correct credentials
+        String email = "validuser@example.com";
+        String password = "Password123!";
+        mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new LoginRequest(email, password))))
             .andExpect(status().isUnauthorized());
     }
 
@@ -290,7 +445,7 @@ public class AuthControllerTest {
         String password = "Password123!";
         String response = mockMvc.perform(post("/api/auth/login")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(email, password))))
+            .content(toJson(new LoginRequest(email, password))))
             .andExpect(status().isOk())
             .andReturn()
             .getResponse()
@@ -341,7 +496,9 @@ public class AuthControllerTest {
 
     @Test
     void logoutUser_ShouldReturn401Unauthorized_WhenRequestTokenSubjectIsNotNumeric() throws Exception {
-        String invalidToken = jwtUtils.generateRefreshToken("non-numeric-subject", UUID.randomUUID(), Date.from(Instant.now().plusSeconds(60 * 60 * 24 * 7))); // 7 days expiry
+        String invalidToken = jwtUtils.generateRefreshToken(
+            "non-numeric-subject", UUID.randomUUID(), Date.from(Instant.now().plusSeconds(60 * 60 * 24 * 7))); // 7 days expiry
+
         RefreshTokenRequest request = new RefreshTokenRequest(invalidToken);
 
         mockMvc.perform(post("/api/auth/logout")
@@ -369,7 +526,9 @@ public class AuthControllerTest {
 
     @Test
     void logoutUser_ShouldReturn401Unauthorized_WhenRequestTokenIsNotInDatabase() throws Exception {
-        String validTokenNotInDB = jwtUtils.generateRefreshToken("1", UUID.randomUUID(), Date.from(Instant.now().plusSeconds(60 * 60 * 24 * 7))); // 7 days expiry
+        String validTokenNotInDB = jwtUtils.generateRefreshToken(
+            "1", UUID.randomUUID(), Date.from(Instant.now().plusSeconds(60 * 60 * 24 * 7))); // 7 days expiry
+
         RefreshTokenRequest request = new RefreshTokenRequest(validTokenNotInDB);
 
         mockMvc.perform(post("/api/auth/logout")
@@ -411,7 +570,7 @@ public class AuthControllerTest {
         String password = "Password123!";
         String response = mockMvc.perform(post("/api/auth/login")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(toJson(new com.smarthealthdog.backend.dto.LoginRequest(email, password))))
+            .content(toJson(new LoginRequest(email, password))))
             .andExpect(status().isOk())
             .andReturn()
             .getResponse()
@@ -508,7 +667,9 @@ public class AuthControllerTest {
 
     @Test
     void refreshToken_ShouldReturn401Unauthorized_WhenTokenSubjectIsNotNumeric() throws Exception {
-        String refreshToken = jwtUtils.generateRefreshToken("non-numeric-subject", UUID.randomUUID(), Date.from(Instant.now().minusSeconds(60 * 60 * 24 * 8))); // 8 days ago, assuming 7 days expiry
+        String refreshToken = jwtUtils.generateRefreshToken(
+            "non-numeric-subject", UUID.randomUUID(), Date.from(Instant.now().minusSeconds(60 * 60 * 24 * 8))); // 8 days ago, assuming 7 days expiry
+
         RefreshTokenRequest request = new RefreshTokenRequest(refreshToken);
 
         mockMvc.perform(post("/api/auth/token/refresh")
@@ -519,7 +680,9 @@ public class AuthControllerTest {
 
     @Test
     void refreshToken_ShouldReturn401Unauthorized_WhenTokenJTIIsNotFoundInDatabase() throws Exception {
-        String refreshToken = jwtUtils.generateRefreshToken("1", UUID.randomUUID(), Date.from(Instant.now().minusSeconds(60 * 60 * 24 * 8))); // 8 days ago, assuming 7 days expiry
+        String refreshToken = jwtUtils.generateRefreshToken(
+            "1", UUID.randomUUID(), Date.from(Instant.now().minusSeconds(60 * 60 * 24 * 8))); // 8 days ago, assuming 7 days expiry
+
         RefreshTokenRequest request = new RefreshTokenRequest(refreshToken);
 
         mockMvc.perform(post("/api/auth/token/refresh")
