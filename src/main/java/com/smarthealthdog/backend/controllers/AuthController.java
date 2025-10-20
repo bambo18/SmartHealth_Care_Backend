@@ -32,8 +32,8 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<Void> createUser(
-        @RequestPart("request") @Valid UserCreateRequest request,
-        @RequestPart(value = "profilePicture", required = false) MultipartFile profilePicture
+            @RequestPart("request") @Valid UserCreateRequest request,
+            @RequestPart(value = "profilePicture", required = false) MultipartFile profilePicture
     ) {
         authService.registerUser(request, profilePicture);
         return ResponseEntity.status(HttpStatus.CREATED).body(null);
