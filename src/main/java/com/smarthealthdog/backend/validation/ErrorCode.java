@@ -17,7 +17,14 @@ public enum ErrorCode {
     EMAIL_VERIFICATION_FAIL_COUNT_EXCEEDED("이메일 인증 실패 횟수를 초과했습니다. 잠시 후 다시 시도해주세요."),
 
     // 유저 수정 관련
-    INVALID_IMAGE("이미지 파일이 유효하지 않거나 지원되지 않는 형식입니다.");
+    INVALID_IMAGE("이미지 파일이 유효하지 않거나 지원되지 않는 형식입니다."),
+
+    // 산책 관련 오류
+    INVALID_WALK_TIME_RANGE("산책의 종료 시간은 시작 시간 이후여야 합니다."),
+    INVALID_WALK_DISTANCE("산책 거리는 0 이상이어야 합니다."),
+    INVALID_WALK_PATH("산책 경로가 유효하지 않습니다."),
+    WALK_NOT_FOUND("산책을 찾을 수 없습니다."),
+    INVALID_TIMEZONE("유효하지 않은 타임존 문자열입니다.");
 
     private final String message;
 
