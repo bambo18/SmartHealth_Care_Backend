@@ -3,23 +3,24 @@
 
 package com.smarthealthdog.backend.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import com.smarthealthdog.backend.domain.Pet;
-import com.smarthealthdog.backend.domain.Sex;
-import com.smarthealthdog.backend.domain.Species;
+import com.smarthealthdog.backend.domain.PetGender;
+import com.smarthealthdog.backend.domain.PetSpecies;
 
 //반려동물 정보를 응답으로 보낼 때 사용되는 dto
 //서버->클라이언트
 public record PetResponse(
         Long id,
         String name,
-        Species species,
+        PetSpecies species,
         String breed,
-        Sex sex,
+        PetGender sex,
         LocalDate birthDate,
         Boolean neutered,
-        Double weightKg,
+        BigDecimal weightKg,
         Long ownerId
 ) {
     public static PetResponse from(Pet pet) {
@@ -28,11 +29,11 @@ public record PetResponse(
                 pet.getName(),
                 pet.getSpecies(),
                 pet.getBreed(),
-                pet.getSex(),
-                pet.getBirthDate(),
-                pet.getNeutered(),
+                pet.getGender(),
+                pet.getBirthday(),
+                pet.getIsNeutered(),
                 pet.getWeightKg(),
-                pet.getOwnerId()
+                pet.getOwner().getId()
         );
     }
 }
