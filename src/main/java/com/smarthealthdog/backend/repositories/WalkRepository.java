@@ -1,5 +1,6 @@
 package com.smarthealthdog.backend.repositories;
 
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -30,24 +31,26 @@ public interface WalkRepository extends JpaRepository<Walk, Long> {
     }
 
     @Query(value = """
-        SELECT
-            pet_id              AS petId,
-            COUNT(*)            AS totalWalks,
-            COALESCE(SUM(distance), 0) AS totalDistanceKm,
-            COALESCE(SUM(
-                CASE WHEN end_time IS NOT NULL
-                     THEN EXTRACT(EPOCH FROM (end_time - start_time))
-                     ELSE 0 END
-            ), 0)               AS totalDurationSec
-        FROM walks
-        WHERE user_id = :userId
-          AND start_time >= :start
-          AND start_time <  :end
-        GROUP BY pet_id
+    SELECT
+        w.pet_id AS petId,
+        COUNT(*) AS totalWalks,
+        COALESCE(SUM(w.distance_km), 0) AS totalDistanceKm,
+        COALESCE(SUM(
+            CASE WHEN w.end_time IS NOT NULL
+                THEN EXTRACT(EPOCH FROM (w.end_time - w.start_time))
+                ELSE 0 END
+        ), 0) AS totalDurationSec
+    FROM walks w
+    JOIN pets p ON w.pet_id = p.id
+    WHERE 
+        p.owner_id = :userId 
+        AND w.start_time >= :start
+        AND w.start_time < :end
+    GROUP BY w.pet_id
         """, nativeQuery = true)
     List<WeeklyAggRow> aggregateByUserAndPeriod(
             @Param("userId") Long userId,
-            @Param("start") OffsetDateTime start,
-            @Param("end")   OffsetDateTime end);
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
 
 }
