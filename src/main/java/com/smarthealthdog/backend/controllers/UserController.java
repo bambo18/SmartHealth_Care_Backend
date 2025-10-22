@@ -7,14 +7,19 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.smarthealthdog.backend.dto.UpdateUserProfileRequest;
 import com.smarthealthdog.backend.dto.UserProfile;
 import com.smarthealthdog.backend.services.UserService;
 import com.smarthealthdog.backend.services.WalkService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
@@ -29,6 +34,18 @@ public class UserController {
     public ResponseEntity<UserProfile> getMyProfile(@AuthenticationPrincipal UserDetails userDetails) {
         Long userId = Long.parseLong(userDetails.getUsername());
         UserProfile userProfile = userService.getUserProfileById(userId);
+        return ResponseEntity.ok(userProfile);
+    }
+
+    @PatchMapping("/me")
+    @PreAuthorize("hasAuthority('can_edit_own_profile')")
+    public ResponseEntity<UserProfile> updateMyProfile(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestPart("request") @Valid UpdateUserProfileRequest updatedProfile,
+            @RequestPart(value = "profilePicture", required = false) MultipartFile profilePicture
+    ) {
+        Long userId = Long.parseLong(userDetails.getUsername());
+        UserProfile userProfile = userService.updateUserProfile(userId, updatedProfile, profilePicture);
         return ResponseEntity.ok(userProfile);
     }
 
