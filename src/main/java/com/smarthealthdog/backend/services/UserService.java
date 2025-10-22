@@ -11,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.User;
+import com.smarthealthdog.backend.dto.UpdateUserProfileRequest;
 import com.smarthealthdog.backend.dto.UserProfile;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
@@ -204,6 +205,43 @@ public class UserService {
     public boolean userExistsByEmail(String email) {
         // Logic to check if a user exists by email
         return userRepository.existsByEmail(email);
+    }
+
+    /**
+     * 사용자 프로필 업데이트
+     * @param userId 사용자 ID
+     * @param updatedProfile 업데이트할 프로필 정보
+     * @param profilePicture 업로드할 프로필 사진 파일
+     * @return 업데이트된 사용자 프로필
+     */
+    @Transactional
+    public UserProfile updateUserProfile(Long userId, UpdateUserProfileRequest updatedProfile, MultipartFile profilePicture) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        // 닉네임 업데이트
+        String newNickname = updatedProfile.nickname();
+        if (newNickname != null && !newNickname.isBlank()) {
+            boolean isValidNickname = nicknameValidator.isValid(newNickname);
+            if (!isValidNickname) {
+                throw new InvalidRequestDataException(ErrorCode.INVALID_NICKNAME);
+            }
+            user.setNickname(newNickname);
+        }
+
+        userRepository.save(user);
+
+        // 프로필 사진 업데이트
+        if (profilePicture != null && !profilePicture.isEmpty()) {
+            setUserProfilePicture(user, profilePicture);
+        }
+
+        return new UserProfile(
+            user.getId(),
+            user.getNickname(),
+            user.getEmail(),
+            user.getProfilePic()
+        );
     }
 
     /**
