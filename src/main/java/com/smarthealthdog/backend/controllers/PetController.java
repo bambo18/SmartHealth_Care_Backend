@@ -1,21 +1,27 @@
 package com.smarthealthdog.backend.controllers;
 
+import java.io.IOException;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.smarthealthdog.backend.domain.Pet;
 import com.smarthealthdog.backend.dto.CreatePetRequest;
+import com.smarthealthdog.backend.dto.PartialUpdatePetRequest;
 import com.smarthealthdog.backend.dto.PetResponse;
 import com.smarthealthdog.backend.dto.UpdatePetRequest;
 import com.smarthealthdog.backend.services.PetService;
@@ -23,7 +29,6 @@ import com.smarthealthdog.backend.services.PetService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-//@RestController 이거는 클래스가 http요청을 받는 컨트롤러임을 명시
 @RestController
 @RequestMapping("/api/pets")
 @RequiredArgsConstructor
@@ -33,58 +38,74 @@ public class PetController {
 
     /** 반려동물 등록 */
     @PostMapping
-    public ResponseEntity<PetResponse> create(@RequestBody @Valid CreatePetRequest req) {
-        Pet saved = petService.create(req);
+    @PreAuthorize("hasAuthority('can_add_pet')")
+    public ResponseEntity<PetResponse> create(
+            @RequestPart("request") @Valid CreatePetRequest req, 
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestPart(value = "profilePicture", required = false) MultipartFile profilePicture
+    ) throws IOException {
+
+        Long ownerId = Long.parseLong(userDetails.getUsername());
+        Pet saved = petService.create(ownerId, req, profilePicture);
         return ResponseEntity.ok(PetResponse.from(saved));
     }
 
     /** 단건 조회 (명세서: { status, pet } 구조) */
-@GetMapping("/{id}")
-public ResponseEntity<?> get(@PathVariable Long id) {
-    Pet pet = petService.get(id);
-    return ResponseEntity.ok(java.util.Map.of(
-        "status", 200,
-        "pet", PetResponse.from(pet)
-    ));
-}
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('can_view_own_pet_detail')")
+    public ResponseEntity<PetResponse> get(@PathVariable Long id) {
+        Pet pet = petService.get(id);
+        return ResponseEntity.ok(PetResponse.from(pet));
+    }
 
     /** 소유자 기준 목록 조회 */
-@GetMapping
-public ResponseEntity<?> list(@RequestParam Long ownerId) {
-    var pets = petService.listByOwner(ownerId)
-            .stream()
-            .map(PetResponse::from)
-            .collect(Collectors.toList());
+    @GetMapping
+    @PreAuthorize("hasAuthority('can_view_own_pets')")
+    public ResponseEntity<List<PetResponse>> list(@AuthenticationPrincipal UserDetails userDetails) {
+        Long ownerId = Long.parseLong(userDetails.getUsername());
+        List<PetResponse> pets = petService.listByOwner(ownerId)
+                .stream()
+                .map(PetResponse::from)
+                .collect(Collectors.toList());
 
-    // 명세서 구조에 맞게 {"pets": [...] } 형태로 반환
-    return ResponseEntity.ok(java.util.Map.of("pets", pets));
-}
+        return ResponseEntity.ok(pets);
+    }
 
     /** 전체 수정 */
     @PutMapping("/{id}")
-    public ResponseEntity<PetResponse> update(@PathVariable Long id,
-                                              @RequestBody @Valid UpdatePetRequest req) {
-        Pet updated = petService.update(id, req);
+    @PreAuthorize("hasAuthority('can_edit_pet')")
+    public ResponseEntity<PetResponse> update(
+            @PathVariable Long id,
+            @RequestPart("request") @Valid UpdatePetRequest req,
+            @RequestPart(value = "profilePicture", required = false) MultipartFile profilePicture,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) throws IOException {
+        Long ownerId = Long.parseLong(userDetails.getUsername());
+        Pet updated = petService.update(id, ownerId, req, profilePicture);
         return ResponseEntity.ok(PetResponse.from(updated));
     }
 
     /** 삭제 */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        petService.delete(id);
+    @PreAuthorize("hasAuthority('can_delete_pet')")
+    public ResponseEntity<Void> delete(@PathVariable Long id,
+                                       @AuthenticationPrincipal UserDetails userDetails) {
+        petService.delete(id, Long.parseLong(userDetails.getUsername()));
         return ResponseEntity.noContent().build();
     }
 
     /** 부분 수정 (Partial Update) */
     @PatchMapping("/{id}")
-    public ResponseEntity<?> partialUpdate(@PathVariable Long id,
-                                           @RequestBody java.util.Map<String, Object> updates) {
-        Pet updatedPet = petService.partialUpdate(id, updates);
-        return ResponseEntity.ok(java.util.Map.of(
-                "status", 200,
-                "message", "반려동물 정보가 수정되었습니다.",
-                "pet", PetResponse.from(updatedPet)
-        ));
+    @PreAuthorize("hasAuthority('can_edit_pet')")
+    public ResponseEntity<PetResponse> partialUpdate(
+            @PathVariable Long id,
+            @RequestPart("request") PartialUpdatePetRequest updates,
+            @RequestPart(value = "profilePicture", required = false) MultipartFile profilePicture,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) throws IOException {
+
+        Pet updatedPet = petService.partialUpdate(id, updates, Long.parseLong(userDetails.getUsername()), profilePicture);
+        return ResponseEntity.ok(PetResponse.from(updatedPet));
     }
 }
 //클라이언트 (json요청) -> petController(요청 수신 & dto변환) ->

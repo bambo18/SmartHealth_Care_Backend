@@ -121,7 +121,7 @@ public class EmailVerificationService {
             return;
         }
 
-        // 실패 횟수가 5회를 초과했는지 확인
+        // 실패 횟수가 초과했는지 확인
         if (failCount >= emailVerificationFailureAttempts) {
             // 인증 보낸 시간이 잠금 기간 내에 있는지 확인
             if (lockedAt != null && Instant.now().isBefore(lockedAt.plusSeconds(emailVerificationLockDurationMinutes * 60))) {
@@ -170,7 +170,7 @@ public class EmailVerificationService {
             emailVerificationRepository.incrementEmailVerificationFailCountByEmail(email);
             entityManager.refresh(emailVerification); // 영속성 컨텍스트에서 최신 상태로 갱신
 
-            // 실패 횟수가 5회를 초과했는지 확인
+            // 실패 횟수가 초과했는지 확인
             if (emailVerification.getEmailVerificationFailCount() >= emailVerificationFailureAttempts) {
                 emailVerificationRepository.lockEmailVerificationByEmail(email, Instant.now());
                 throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);
@@ -185,7 +185,7 @@ public class EmailVerificationService {
             emailVerificationRepository.incrementEmailVerificationFailCountByEmail(email);
             entityManager.refresh(emailVerification); // 영속성 컨텍스트에서 최신 상태로 갱신
 
-            // 실패 횟수가 5회를 초과했는지 확인
+            // 실패 횟수가 초과했는지 확인
             if (emailVerification.getEmailVerificationFailCount() >= emailVerificationFailureAttempts) {
                 emailVerificationRepository.lockEmailVerificationByEmail(email, Instant.now());
                 throw new InvalidRequestDataException(ErrorCode.INVALID_EMAIL_VERIFICATION);

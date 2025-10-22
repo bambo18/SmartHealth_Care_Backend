@@ -1,6 +1,7 @@
 package com.smarthealthdog.backend.services;
 
-import java.time.LocalDate;
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -16,13 +17,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smarthealthdog.backend.domain.Pet;
 import com.smarthealthdog.backend.domain.Walk;
 import com.smarthealthdog.backend.dto.walk.CreateWalkRequest;
-import com.smarthealthdog.backend.dto.walk.EndWalkRequest;
+import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
+import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.repositories.WalkRepository;
-import com.smarthealthdog.backend.support.NotFoundException;
+import com.smarthealthdog.backend.utils.DateUtils;
+import com.smarthealthdog.backend.validation.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
-
-
 
 @Service
 @Transactional
@@ -32,60 +33,51 @@ public class WalkService {
     private final WalkRepository walkRepository;
     private final PetService petService;
     private final ObjectMapper objectMapper = new ObjectMapper(); // 간단히 로컬로 사용
+    private final DateUtils dateUtils;
 
     /** 산책 시작 (완료된 코드) */
-    public Walk start(Long petId, Long userId, CreateWalkRequest req) {
+    @Transactional
+    public Walk create(Long petId, Long userId, CreateWalkRequest req) {
         Pet pet = petService.get(petId);
-        Walk walk = Walk.builder()
-                .petId(pet.getId())
-                .userId(userId)
-                .startTime(req.start_time())
-                .build();
-        return walkRepository.save(walk);
-    }
 
-    /** 산책 종료 */
-    public Walk end(Long petId, Long walkId, Long userId, EndWalkRequest req) {
-        // 1) 존재 확인
-        Walk w = walkRepository.findById(walkId)
-                .orElseThrow(() -> new NotFoundException("Walk not found: " + walkId));
-
-        // 2) 요청 경로의 petId와 기록의 petId 일치 확인
-        if (!w.getPetId().equals(petId)) {
-            throw new NotFoundException("Walk not found for pet: " + petId); // 404로 처리
+        if (req.endTime().isBefore(req.startTime())) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_WALK_TIME_RANGE);
         }
-
-        // 3) (JWT 붙인 후) 소유권 검증
-        // if (!w.getUserId().equals(userId)) throw new UnauthorizedException(...);
-
-        // 4) 유효성 검사
-        if (req.end_time().isBefore(req.start_time())) {
-            throw new IllegalArgumentException("end_time은 start_time 이후여야 합니다.");
-        }
-        if (req.distance() < 0) {
-            throw new IllegalArgumentException("distance는 0 이상이어야 합니다.");
+        if (req.distanceKm().compareTo(BigDecimal.ZERO) < 0) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_WALK_DISTANCE);
         }
 
         // 5) 좌표 JSON 직렬화
         String pathJson = "[]";
         try {
-            if (req.path_coordinates() != null) {
-                pathJson = objectMapper.writeValueAsString(req.path_coordinates());
+            if (req.pathCoordinates() != null) {
+                pathJson = objectMapper.writeValueAsString(req.pathCoordinates());
             }
         } catch (JsonProcessingException e) {
-            throw new IllegalArgumentException("path_coordinates 형식이 올바르지 않습니다.");
+            throw new InvalidRequestDataException(ErrorCode.INVALID_WALK_PATH);
         }
 
-        // 6) 종료 반영
-        w.end(req.start_time(), req.end_time(), req.distance(), pathJson);
-
         // JPA 변경감지로 자동 update
-        return w;
+        Walk walk = Walk.builder()
+                .pet(pet)
+                .startTime(req.startTime())
+                .endTime(req.endTime())
+                .distanceKm(req.distanceKm())
+                .pathCoordinates(pathJson)
+                .build();
+
+        return walkRepository.save(walk);
     }
 
-    public Walk get(Long walkId) {
-        return walkRepository.findById(walkId)
-                .orElseThrow(() -> new NotFoundException("Walk not found: " + walkId));
+    public Walk get(Long walkId, Long userId) {
+        Walk w = walkRepository.findById(walkId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.WALK_NOT_FOUND));
+
+        if (!w.getPet().getOwner().getId().equals(userId)) {
+            throw new ResourceNotFoundException(ErrorCode.WALK_NOT_FOUND);
+        }
+
+        return w;
     }
 
     @Transactional(readOnly = true)
@@ -113,12 +105,12 @@ public class WalkService {
     @Transactional
     public void delete(Long walkId, Long userId) {
         var w = walkRepository.findById(walkId)
-                .orElseThrow(() -> new NotFoundException("Walk not found: " + walkId));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.WALK_NOT_FOUND));
 
         // 임시 소유권 검증 (JWT 머지 후 인증정보로 교체)
-        if (!w.getUserId().equals(userId)) {
+        if (!w.getPet().getOwner().getId().equals(userId)) {
             // 401 성격이지만, 공통 예외체계 없으니 일단 404처럼 감춤 or 별도 UnauthorizedException 만들어도 됨
-            throw new NotFoundException("Walk not found: " + walkId);
+            throw new ResourceNotFoundException(ErrorCode.WALK_NOT_FOUND);
         }
 
         walkRepository.deleteById(walkId);
@@ -126,15 +118,25 @@ public class WalkService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> weeklyComparison(
-            Long userId, LocalDate startDate, LocalDate endDate, ZoneId zone) {
+            Long userId, String timezone) {
+        
+        // 날짜 계산을 위해 curStart를 해당 주의 일요일로 이동
+        ZoneId zone = ZoneId.of("UTC");
+        if (timezone != null && !timezone.isBlank()) {
+            try {
+                zone = ZoneId.of(timezone);
+            } catch (Exception e) {
+                throw new InvalidRequestDataException(ErrorCode.INVALID_TIMEZONE);
+            }
+        }
 
-        // 날짜 → 기간 경계(포함/제외)로 변환: [start, end+1)
-        OffsetDateTime curStart = startDate.atStartOfDay(zone).toOffsetDateTime();
-        OffsetDateTime curEndEx = endDate.plusDays(1).atStartOfDay(zone).toOffsetDateTime();
+        // 현재 주의 일요일 00:00:00 Instant
+        Instant curStart = dateUtils.getStartOfWeekSundayInstant(zone);
+        Instant curEnd = curStart.plusSeconds(7 * 24 * 3600); // 주말 포함 끝나는 시각
 
         // 지난 주: 각 -7일
-        OffsetDateTime prevStart = curStart.minusDays(7);
-        OffsetDateTime prevEndEx = curEndEx.minusDays(7);
+        Instant prevStart = curStart.minusSeconds(7 * 24 * 3600);
+        Instant prevEnd = curEnd.minusSeconds(7 * 24 * 3600);
 
         // 사용자 반려동물 목록(이름 매핑 용)
         List<Pet> pets = petService.listByOwner(userId);
@@ -143,11 +145,11 @@ public class WalkService {
 
         // 기간별 집계
         Map<Long, WalkRepository.WeeklyAggRow> curAgg = walkRepository
-                .aggregateByUserAndPeriod(userId, curStart, curEndEx)
+                .aggregateByUserAndPeriod(userId, curStart, curEnd)
                 .stream().collect(Collectors.toMap(WalkRepository.WeeklyAggRow::getPetId, r -> r));
 
         Map<Long, WalkRepository.WeeklyAggRow> prevAgg = walkRepository
-                .aggregateByUserAndPeriod(userId, prevStart, prevEndEx)
+                .aggregateByUserAndPeriod(userId, prevStart, prevEnd)
                 .stream().collect(Collectors.toMap(WalkRepository.WeeklyAggRow::getPetId, r -> r));
 
         // 응답 구성
@@ -167,32 +169,33 @@ public class WalkService {
             long vDur   = nvl(v.getTotalDurationSec());
 
             Map<String, Object> item = Map.of(
-                "pet_id", petId,
+                "petId", petId,
                 "name",   petNameMap.getOrDefault(petId, "unknown"),
-                "current_week_summary", Map.of(
-                    "total_walks",        cWalks,
-                    "total_distance_km",  round1(cDist),
-                    "total_duration_sec", cDur
+                "currentWeekSummary", Map.of(
+                    "totalWalks",        cWalks,
+                    "totalDistanceKm",  round1(cDist),
+                    "totalDurationSec", cDur
                 ),
-                "previous_week_summary", Map.of(
-                    "total_walks",        vWalks,
-                    "total_distance_km",  round1(vDist),
-                    "total_duration_sec", vDur
+                "previousWeekSummary", Map.of(
+                    "totalWalks",        vWalks,
+                    "totalDistanceKm",  round1(vDist),
+                    "totalDurationSec", vDur
                 ),
                 "delta", Map.of(
-                    "walks_pct",    pct(vWalks, cWalks),
-                    "distance_pct", pct(vDist,  cDist),
-                    "duration_pct", pct(vDur,   cDur)
+                    "walksPct",    pct(vWalks, cWalks),
+                    "distancePct", pct(vDist,  cDist),
+                    "durationPct", pct(vDur,   cDur)
                 )
             );
             petItems.add(item);
         }
 
         return Map.of(
-            "user_id", userId,
+            "userId", userId,
+            "timezone", zone.getId(),
             "period", Map.of(
-                "current",  Map.of("start_date", startDate, "end_date", endDate),
-                "previous", Map.of("start_date", startDate.minusDays(7), "end_date", endDate.minusDays(7))
+                "current",  Map.of("startDate", curStart.toString(), "endDate", curEnd.toString()),
+                "previous", Map.of("startDate", prevStart.toString(), "endDate", prevEnd.toString())
             ),
             "pets", petItems
         );

@@ -14,12 +14,6 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
-    # 스키마 자동 생성 설정 (개발 환경에서만 사용 권장)
-    # generate-ddl: true 
-
-    # 스키마를 SQL 파일로 내보내기 설정 (필요시 사용)
-    # properties.javax.persistence.schema-generation.scripts.action: create
-    # properties.javax.persistence.schema-generation.scripts.create-target: src/main/resources/schema.sql
   flyway:
     enabled: true
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
@@ -40,10 +34,6 @@ spring:
           starttls:
             enable: true
             required: true
-
-logging:
-  level:
-    org.springframework.security: DEBUG
 
 jwt:
   secret: ${JWT_SECRET}
@@ -89,3 +79,5 @@ cloud:
       secret-key: ${AWS_SECRET_KEY}
     s3:
       bucket: ${AWS_S3_BUCKET}
+    cloudfront:
+      domain: ${AWS_CLOUDFRONT_DOMAIN}

@@ -1,13 +1,16 @@
 package com.smarthealthdog.backend.domain;
 
+import java.math.BigDecimal;
 import java.time.Duration;
-import java.time.OffsetDateTime;
+import java.time.Instant;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -23,47 +26,35 @@ public class Walk {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Long petId;
+    @ManyToOne
+    @JoinColumn(name = "pet_id", nullable = false)
+    private Pet pet;
 
-    @Column(nullable = false)
-    private Long userId;
+    @Column(name = "start_time", nullable = false)
+    private Instant startTime;
 
-    @Column(nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
-    private OffsetDateTime startTime;
+    @Column(name = "end_time", nullable = false)
+    private Instant endTime;   // 종료 시점 저장
 
-    @Column(columnDefinition = "TIMESTAMP WITH TIME ZONE")
-    private OffsetDateTime endTime;   // 종료 시점 저장
+    @Column(name = "distance_km", nullable = false, precision = 7, scale = 2)
+    private BigDecimal distanceKm;          // 총 거리 (단위는 정책에 맞춰 사용)
 
-    private Double distance;          // 총 거리 (단위는 정책에 맞춰 사용)
-
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT", name = "path_coordinates")
     private String pathCoordinates;   // 경로(JSON 문자열)
 
-    @Column(name = "duration_seconds")
-    private Long durationSeconds;     // end - start (초)
-
     @Builder
-    private Walk(Long petId, Long userId, OffsetDateTime startTime) {
-        this.petId = petId;
-        this.userId = userId;
+    private Walk(Pet pet, Instant startTime, Instant endTime, BigDecimal distanceKm, String pathCoordinates) {
+        this.pet = pet;
         this.startTime = startTime;
-        this.pathCoordinates = "[]";
+        this.endTime = endTime;
+        this.distanceKm = distanceKm;
+        this.pathCoordinates = pathCoordinates;
     }
 
-    /** 산책 종료 처리 */
-    public void end(OffsetDateTime newStart, OffsetDateTime end, Double distance, String pathJson) {
-        // start_time이 요청에 포함되므로 클라이언트와 서버 상태를 맞추려면 선택적으로 갱신/검증
-        // 정책: 요청의 start_time이 엔티티와 다르면 엔티티 값을 우선(혹은 동일해야 한다고 검증)
-        if (newStart != null) {
-            this.startTime = newStart;
+    public Long getDurationSeconds() {
+        if (startTime != null && endTime != null) {
+            return Duration.between(startTime, endTime).getSeconds();
         }
-        this.endTime = end;
-        this.distance = distance;
-        this.pathCoordinates = pathJson;
-
-        if (this.startTime != null && this.endTime != null) {
-            this.durationSeconds = Duration.between(this.startTime, this.endTime).getSeconds();
-        }
+        return null;
     }
 }

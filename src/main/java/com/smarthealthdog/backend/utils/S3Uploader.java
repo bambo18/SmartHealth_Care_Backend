@@ -9,8 +9,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.smarthealthdog.backend.domain.Pet;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
+import com.smarthealthdog.backend.repositories.PetRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.validation.ErrorCode;
 
@@ -24,6 +26,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 public class S3Uploader {
     private final S3Client s3Client;
     private final UserRepository userRepository;
+    private final PetRepository petRepository;
 
     @Value("${cloud.aws.s3.bucket}")
     private String bucket;
@@ -63,5 +66,31 @@ public class S3Uploader {
 
         user.setProfilePic(key);
         userRepository.save(user);
+    }
+
+    @Async
+    @Transactional
+    public String uploadPetImage(Pet pet, MultipartFile file) throws IOException {
+        if (file == null || file.getOriginalFilename() == null) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
+        }
+
+        String ext = file.getOriginalFilename()
+                         .substring(file.getOriginalFilename().lastIndexOf("."));
+        String key = "pets/" + UUID.randomUUID() + ext;
+
+        s3Client.putObject(
+            PutObjectRequest.builder()
+                .bucket(bucket)
+                .key(key)
+                .contentType(file.getContentType())
+                .build(),
+            RequestBody.fromBytes(file.getBytes())
+        );
+
+        pet.setProfileImage(key);
+        petRepository.save(pet);
+
+        return key;
     }
 }

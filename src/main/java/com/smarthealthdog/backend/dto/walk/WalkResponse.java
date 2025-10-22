@@ -18,12 +18,11 @@ public class WalkResponse {
         }
         return Map.of(
             "walk_id", w.getId(),
-            "pet_id", w.getPetId(),
-            "user_id", w.getUserId(),
+            "pet_id", w.getPet().getId(),
             "start_time", w.getStartTime(),
             "end_time", w.getEndTime(),
             "duration", duration,
-            "distance", w.getDistance(),
+            "distance", w.getDistanceKm(),
             "path_coordinates", w.getPathCoordinates()
         );
     }
@@ -45,12 +44,11 @@ public class WalkResponse {
 
         return Map.of(
             "walk_id", w.getId(),
-            "pet_id", w.getPetId(),
-            "user_id", w.getUserId(),
+            "pet_id", w.getPet().getId(),
             "start_time", w.getStartTime(),
             "end_time", w.getEndTime(),
             "duration", duration,
-            "distance", w.getDistance(),
+            "distance", w.getDistanceKm(),
             "path_coordinates", coords,
             "photos", List.of() // 아직 사진 기능 미도입 → 빈 배열
         );
