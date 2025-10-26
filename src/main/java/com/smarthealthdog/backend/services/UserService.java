@@ -155,6 +155,11 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
+    /**
+     * 사용자 프로필 사진 URL 생성
+     * @param user
+     * @return 프로필 사진 URL
+     */
     public String getUserProfilePictureURL(User user) {
         if (user == null || user.getProfilePic() == null || user.getProfilePic().isBlank()) {
             return null;
