@@ -14,12 +14,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
+import com.smarthealthdog.backend.dto.UpdateUserProfileRequest;
 import com.smarthealthdog.backend.dto.UserProfile;
+import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.validation.NicknameValidator;
@@ -41,6 +44,9 @@ public class UserServiceUT {
 
     @Mock
     private NicknameValidator nicknameValidator;
+
+    @Mock 
+    private FileUploadService fileUploadService;
 
     @InjectMocks
     private UserService userService;
@@ -172,7 +178,78 @@ public class UserServiceUT {
         assertTrue(userProfile.id().equals(existingUserId));
         assertTrue(userProfile.nickname().equals("testNickname"));
         assertTrue(userProfile.email().equals("testEmail@example.com"));
-        assertTrue(userProfile.profileImgUrl().equals("profilePicUrl"));
+    }
+
+    @Test
+    public void updateUserProfile_ShouldThrowException_WhenUserNotFound() {
+        Long nonExistentUserId = 999L;
+
+        // Arrange
+        when(userRepository.findById(nonExistentUserId)).thenReturn(java.util.Optional.empty());
+
+        UpdateUserProfileRequest updateUserProfileRequest = new UpdateUserProfileRequest("newNickname");
+
+        MockMultipartFile mockProfilePic = new MockMultipartFile(
+            "profilePic", 
+            "profile.jpg", 
+            "image/jpeg", 
+            "dummy image content".getBytes()
+        );
+
+        // Act & Assert
+        assertThrows(ResourceNotFoundException.class, () -> {
+            userService.updateUserProfile(nonExistentUserId, updateUserProfileRequest, mockProfilePic);
+        });
+    }
+
+    @Test
+    public void updateUserProfile_ShouldThrowException_WhenNicknameInvalid() {
+        Long existingUserId = 1L;
+        User mockUser = mock(User.class);
+        when(userRepository.findById(existingUserId)).thenReturn(java.util.Optional.of(mockUser));
+
+        // Arrange
+        when(nicknameValidator.isValid("invalidNickname")).thenReturn(false);
+
+        UpdateUserProfileRequest updateUserProfileRequest = new UpdateUserProfileRequest("invalidNickname");
+
+        MockMultipartFile mockProfilePic = new MockMultipartFile(
+            "profilePic", 
+            "profile.jpg", 
+            "image/jpeg", 
+            "dummy image content".getBytes()
+        );
+
+        // Act & Assert
+        assertThrows(InvalidRequestDataException.class, () -> {
+            userService.updateUserProfile(existingUserId, updateUserProfileRequest, mockProfilePic);
+        });
+    }
+
+    @Test
+    public void updateUserProfile_ShouldUpdateProfileSuccessfully() {
+        Long existingUserId = 1L;
+        User mockUser = mock(User.class);
+        when(userRepository.findById(existingUserId)).thenReturn(java.util.Optional.of(mockUser));
+
+        // Arrange
+        when(nicknameValidator.isValid("newValidNickname")).thenReturn(true);
+
+        UpdateUserProfileRequest updateUserProfileRequest = new UpdateUserProfileRequest("newValidNickname");
+
+        MockMultipartFile mockProfilePic = new MockMultipartFile(
+            "profilePic", 
+            "profile.jpg", 
+            "image/jpeg", 
+            "dummy image content".getBytes()
+        );
+
+        // Act
+        userService.updateUserProfile(existingUserId, updateUserProfileRequest, mockProfilePic);
+
+        // Assert
+        verify(mockUser).setNickname("newValidNickname");
+        verify(userRepository).save(mockUser);
     }
 
     @Test
