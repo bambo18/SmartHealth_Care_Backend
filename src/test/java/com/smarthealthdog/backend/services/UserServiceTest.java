@@ -13,13 +13,17 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.smarthealthdog.backend.domain.Permission;
 import com.smarthealthdog.backend.domain.PermissionEnum;
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
+import com.smarthealthdog.backend.dto.UpdateUserProfileRequest;
 import com.smarthealthdog.backend.dto.UserProfile;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
@@ -32,6 +36,9 @@ import com.smarthealthdog.backend.repositories.UserRepository;
 @SpringBootTest
 @ActiveProfiles("test")
 public class UserServiceTest {
+    @MockitoBean
+    private FileUploadService fileUploadService;
+
     @Autowired
     private PermissionRepository permissionRepository;
 
@@ -46,6 +53,12 @@ public class UserServiceTest {
 
     @BeforeAll
     void setup() {
+        ReflectionTestUtils.setField(
+            userService,
+            "cloudFrontUrl",
+            "https://dummy-cloudfront-url.com"
+        );
+
         // iterate over Enum values and create permissions
         // // --- General User Permissions (User & Profile) ---
         // CAN_VIEW_OWN_PROFILE("can_view_own_profile", "자신의 프로필 보기"),
@@ -175,6 +188,71 @@ public class UserServiceTest {
         assertEquals(user.getId(), userProfile.id());
         assertEquals(user.getEmail(), userProfile.email());
         assertEquals(user.getNickname(), userProfile.nickname());
-        assertEquals(user.getProfilePic(), userProfile.profileImgUrl());
+        assertEquals(user.getProfilePic(), userProfile.profilePicture());
+    }
+
+    @Test
+    public void updateUserProfile_ShouldThrowResourceNotFoundException_WhenUserDoesNotExist() {
+        Long nonExistingUserId = 999L;
+
+        UpdateUserProfileRequest request = new UpdateUserProfileRequest("newNickname");
+
+        MockMultipartFile newProfilePic = new MockMultipartFile(
+            "file",
+            "profile.jpg",
+            "image/jpeg",
+            "dummy image content".getBytes()
+        );
+
+        assertThrows(ResourceNotFoundException.class, () -> {
+            userService.updateUserProfile(nonExistingUserId, request, newProfilePic);
+        });
+    }
+
+    @Test
+    public void updateUserProfile_ShouldThrowInvalidRequestDataException_WhenNicknameIsInvalid() {
+        User user = userService.createUser("validNickname", "testuser@example.com", "ValidPass1!");
+        boolean userExists = userRepository.findById(user.getId()).isPresent();
+        assertTrue(userExists);
+
+        String invalidNickname = "ab"; // 너무 짧은 닉네임
+        UpdateUserProfileRequest request = new UpdateUserProfileRequest(invalidNickname);
+        MockMultipartFile newProfilePic = new MockMultipartFile(
+            "file",
+            "profile.jpg",
+            "image/jpeg",
+            "dummy image content".getBytes()
+        );
+        assertThrows(InvalidRequestDataException.class, () -> {
+            userService.updateUserProfile(user.getId(), request, newProfilePic);
+        });
+
+        String longNickname = "a".repeat(129); // 너무 긴 닉네임
+        UpdateUserProfileRequest longNicknameRequest = new UpdateUserProfileRequest(longNickname);
+        assertThrows(InvalidRequestDataException.class, () -> {
+            userService.updateUserProfile(user.getId(), longNicknameRequest, newProfilePic);
+        });
+    }
+
+    @Test
+    public void updateUserProfile_ShouldUpdateProfileSuccessfully_WhenInputIsValid() {
+        User user = userService.createUser("validNickname", "testuser@example.com", "ValidPass1!");
+        boolean userExists = userRepository.findById(user.getId()).isPresent();
+        assertTrue(userExists);
+
+        String newNickname = "newValidNickname";
+        UpdateUserProfileRequest request = new UpdateUserProfileRequest(newNickname);
+        MockMultipartFile newProfilePic = new MockMultipartFile(
+            "file",
+            "profile.jpg",
+            "image/jpeg",
+            "dummy image content".getBytes()
+        );
+
+        UserProfile updatedProfile = userService.updateUserProfile(user.getId(), request, newProfilePic);
+        assertNotNull(updatedProfile);
+        assertEquals(newNickname, updatedProfile.nickname());
+        assertEquals(user.getEmail(), updatedProfile.email());
+        assertEquals(user.getId(), updatedProfile.id());
     }
 }

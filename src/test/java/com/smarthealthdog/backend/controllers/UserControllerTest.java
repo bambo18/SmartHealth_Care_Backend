@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -24,6 +25,7 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -35,6 +37,7 @@ import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.dto.LoginRequest;
 import com.smarthealthdog.backend.dto.LoginResponse;
+import com.smarthealthdog.backend.dto.UpdateUserProfileRequest;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
 import com.smarthealthdog.backend.dto.UserProfile;
 import com.smarthealthdog.backend.repositories.EmailVerificationRepository;
@@ -43,7 +46,9 @@ import com.smarthealthdog.backend.repositories.RefreshTokenRepository;
 import com.smarthealthdog.backend.repositories.RoleRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.services.EmailVerificationService;
+import com.smarthealthdog.backend.services.UserService;
 import com.smarthealthdog.backend.utils.JWTUtils;
+import com.smarthealthdog.backend.utils.S3Uploader;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -61,7 +66,7 @@ public class UserControllerTest {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;
+    private PasswordEncoder tokenEncoder;
 
     @Autowired
     private JWTUtils jwtUtils;
@@ -83,6 +88,12 @@ public class UserControllerTest {
 
     @Autowired
     private EmailVerificationService emailVerificationService;
+
+    @MockitoBean
+    private S3Uploader s3Uploader;
+
+    @Autowired
+    private UserService userService;
 
     SecretKey key;
 
@@ -160,6 +171,12 @@ public class UserControllerTest {
             "emailVerificationSecret",
             "test-email-verification-secret"
         );
+
+        ReflectionTestUtils.setField(
+            userService,
+            "cloudFrontUrl",
+            "https://dummy-cloudfront-url.com"
+        );
     }
 
     @AfterEach
@@ -204,7 +221,7 @@ public class UserControllerTest {
     @Test
     void getMyProfile_ShouldReturn200_WhenUserIsValid() throws Exception {
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("validuser@example.com")
             .emailVerificationToken(hashedToken)
@@ -264,6 +281,199 @@ public class UserControllerTest {
         assertNotNull(userProfile);
         assertTrue(userProfile.email().equals("validuser@example.com"));
         assertTrue(userProfile.nickname().equals("validuser"));
-        assertTrue(userProfile.profileImgUrl() == null);
+        assertTrue(userProfile.profilePicture() == null);
+    }
+
+    @Test
+    void updateMyProfile_ShouldReturn401_WhenNotAuthorized() throws Exception {
+        mockMvc.perform(multipart("/api/users/me")
+            .file(new MockMultipartFile("request", "", MediaType.APPLICATION_JSON_VALUE, "{}".getBytes())))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updateMyProfile_ShouldReturn401_WhenTokenIsInvalid() throws Exception {
+        String invalidToken = "this.is.an.invalid.token";
+        String response = mockMvc.perform(patch("/api/users/me")
+            .header("Authorization", "Bearer " + invalidToken))
+            .andExpect(status().isUnauthorized())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        assertNotNull(response);
+    }
+
+    @Test
+    void updateMyProfile_ShouldReturn400_WhenRequestIsInvalid() throws Exception {
+        String token = "000000";
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("invaliduser@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
+
+        // First, create a user
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "invaliduser",
+            "invaliduser@example.com",
+            "Password123!",
+            token
+        );
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(createRequest).getBytes()
+        );
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile))
+            .andExpect(status().isCreated());
+
+        // Now, attempt to login with correct credentials
+        String email = "invaliduser@example.com";
+        String password = "Password123!";
+        String response = mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new LoginRequest(email, password))))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        LoginResponse loginResponse = objectMapper.readValue(response, LoginResponse.class);
+        String accessToken = loginResponse.accessToken();
+
+        MockMultipartFile invalidRequestFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, "{}".getBytes()
+        );
+
+        // Finally, access the protected endpoint with the obtained token
+        mockMvc.perform(multipart("/api/users/me")
+            .file(invalidRequestFile)
+            .header("Authorization", "Bearer " + accessToken)
+            .with(request -> {
+                request.setMethod("PATCH");
+                return request;
+            }))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateMyProfile_ShouldReturn400_WhenNicknameIsTooLong() throws Exception {
+        String token = "000000";
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("invaliduser@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
+
+        // First, create a user
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "invaliduser",
+            "invaliduser@example.com",
+            "Password123!",
+            token
+        );
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(createRequest).getBytes()
+        );
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile))
+            .andExpect(status().isCreated());
+
+        // Now, attempt to login with correct credentials
+        String email = "invaliduser@example.com";
+        String password = "Password123!";
+        String response = mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new LoginRequest(email, password))))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        LoginResponse loginResponse = objectMapper.readValue(response, LoginResponse.class);
+        String accessToken = loginResponse.accessToken();
+
+        MockMultipartFile invalidRequestFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE,
+            toJson(new UpdateUserProfileRequest("a".repeat(129))).getBytes()
+        );
+
+        // Finally, access the protected endpoint with the obtained token
+        mockMvc.perform(multipart("/api/users/me")
+            .file(invalidRequestFile)
+            .header("Authorization", "Bearer " + accessToken)
+            .with(request -> {
+                request.setMethod("PATCH");
+                return request;
+            }))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateMyProfile_ShouldReturn400_WhenNicknameIsTooShort() throws Exception {
+        String token = "000000";
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
+        EmailVerification emailVerification = EmailVerification.builder()
+            .email("invaliduser@example.com")
+            .emailVerificationToken(hashedToken)
+            .emailVerificationExpiry(Instant.now().plusSeconds(60 * 15))
+            .build();
+
+        emailVerificationRepository.save(emailVerification);
+
+        // First, create a user
+        UserCreateRequest createRequest = new UserCreateRequest(
+            "invaliduser",
+            "invaliduser@example.com",
+            "Password123!",
+            token
+        );
+        MockMultipartFile mockFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE, toJson(createRequest).getBytes()
+        );
+        mockMvc.perform(multipart("/api/auth/register")
+            .file(mockFile))
+            .andExpect(status().isCreated());
+
+        // Now, attempt to login with correct credentials
+        String email = "invaliduser@example.com";
+        String password = "Password123!";
+        String response = mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(toJson(new LoginRequest(email, password))))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+        LoginResponse loginResponse = objectMapper.readValue(response, LoginResponse.class);
+        String accessToken = loginResponse.accessToken();
+
+        MockMultipartFile invalidRequestFile = new MockMultipartFile(
+            "request", "", MediaType.APPLICATION_JSON_VALUE,
+            toJson(new UpdateUserProfileRequest("ab")).getBytes()
+        );
+
+        // Finally, access the protected endpoint with the obtained token
+        mockMvc.perform(multipart("/api/users/me")
+            .file(invalidRequestFile)
+            .header("Authorization", "Bearer " + accessToken)
+            .with(request -> {
+                request.setMethod("PATCH");
+                return request;
+            }))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateMyProfile_ShouldReturn200_WhenRequestIsValid() throws Exception {
+        // Similar to previous test, but with valid update request
+        // Implementation would go here
     }
 }

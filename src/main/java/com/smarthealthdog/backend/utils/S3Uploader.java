@@ -42,26 +42,39 @@ public class S3Uploader {
      */
     @Async
     @Transactional
-    public void uploadProfilePicture(User user, MultipartFile file) throws IOException {
+    public void uploadProfilePicture(
+        User user, 
+        byte[] fileBytes,
+        String originalFilename,
+        String contentType
+    ) throws IOException {
         if (user == null) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
         }
 
-        if (file == null || file.getOriginalFilename() == null) {
+        if (originalFilename == null || originalFilename.isEmpty()) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
         }
 
-        String ext = file.getOriginalFilename()
-                         .substring(file.getOriginalFilename().lastIndexOf("."));
+        if (contentType == null || contentType.isEmpty()) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
+        }
+
+        if (fileBytes == null || fileBytes.length == 0) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
+        }
+
+        String ext = originalFilename
+                         .substring(originalFilename.lastIndexOf("."));
         String key = "profiles/" + UUID.randomUUID() + ext;
 
         s3Client.putObject(
             PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)
-                .contentType(file.getContentType())
+                .contentType(contentType)
                 .build(),
-            RequestBody.fromBytes(file.getBytes())
+            RequestBody.fromBytes(fileBytes)
         );
 
         user.setProfilePic(key);

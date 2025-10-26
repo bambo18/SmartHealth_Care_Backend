@@ -23,7 +23,7 @@ public class EmailVerificationService {
     private final EmailService emailService;
     private final EmailVerificationRepository emailVerificationRepository;
     private final TokenGenerator tokenGenerator;
-    private final PasswordEncoder passwordEncoder;
+    private final PasswordEncoder tokenEncoder;
     private final EntityManager entityManager;
 
     @Value("${app.token.email-verification.expiration.minutes}")
@@ -53,7 +53,11 @@ public class EmailVerificationService {
         validateExistingEmailVerification(email);
 
         String token = tokenGenerator.generateEmailVerificationCode();
-        String hashedToken = passwordEncoder.encode(token + emailVerificationSecret);
+
+        // TODO: 이메일 인증 해싱 함수 라운드 수 조정 고려
+        // 현재는 PasswordEncoder의 기본 설정 사용하고 있으나, 속도와 보안 간의 균형을 맞추기 위해 라운드 수 조정 가능
+        // 예: BCrypt는 최소 4 라운드 사용 가능
+        String hashedToken = tokenEncoder.encode(token + emailVerificationSecret);
 
         Instant now = Instant.now();
         EmailVerification existingVerification = emailVerificationRepository.findByEmail(email).orElse(null);
@@ -77,8 +81,10 @@ public class EmailVerificationService {
         existingVerification.setEmailVerificationExpiry(now.plusSeconds(emailVerificationExpiryMinutes * 60));
         existingVerification.setEmailVerificationFailCount(0);
         existingVerification.setEmailVerificationLockedAt(null);
-        existingVerification.setEmailVerificationTries(existingVerification.getEmailVerificationTries() + 1);
         emailVerificationRepository.save(existingVerification);
+
+        // 시도 횟수 1 증가
+        emailVerificationRepository.incrementEmailVerificationTriesByEmail(email);
 
         emailService.sendEmailVerification(email, token, existingVerification);
     }
@@ -181,7 +187,7 @@ public class EmailVerificationService {
 
         // 토큰이 일치하는지 확인
         String hashedToken = emailVerification.getEmailVerificationToken();
-        if (hashedToken == null || !passwordEncoder.matches(token + emailVerificationSecret, hashedToken)) {
+        if (hashedToken == null || !tokenEncoder.matches(token + emailVerificationSecret, hashedToken)) {
             emailVerificationRepository.incrementEmailVerificationFailCountByEmail(email);
             entityManager.refresh(emailVerification); // 영속성 컨텍스트에서 최신 상태로 갱신
 

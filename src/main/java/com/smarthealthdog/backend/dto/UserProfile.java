@@ -4,5 +4,5 @@ public record UserProfile(
     Long id,
     String nickname,
     String email,
-    String profileImgUrl
+    String profilePicture
 ) {}
