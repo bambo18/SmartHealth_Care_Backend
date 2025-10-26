@@ -17,6 +17,7 @@ bin/
 uploads/
 database/
 localstack/
+redis/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 
