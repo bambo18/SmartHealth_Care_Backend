@@ -35,7 +35,7 @@ public class EmailVerificationServiceUT {
     private TokenGenerator tokenGenerator;
 
     @Mock
-    private PasswordEncoder passwordEncoder;
+    private PasswordEncoder tokenEncoder;
 
     @InjectMocks
     private EmailVerificationService emailVerificationService;

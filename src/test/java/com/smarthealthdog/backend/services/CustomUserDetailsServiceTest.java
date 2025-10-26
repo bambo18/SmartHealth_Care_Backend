@@ -44,7 +44,7 @@ public class CustomUserDetailsServiceTest {
     private EmailVerificationService emailVerificationService;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;
+    private PasswordEncoder tokenEncoder;
 
     @Autowired
     private AuthService authService;
@@ -88,7 +88,7 @@ public class CustomUserDetailsServiceTest {
 
         Instant now = Instant.now();
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("test@test.com")
             .emailVerificationToken(hashedToken)

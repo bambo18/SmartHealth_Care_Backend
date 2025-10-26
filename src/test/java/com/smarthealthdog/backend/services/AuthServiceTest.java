@@ -67,10 +67,16 @@ public class AuthServiceTest {
     private EmailVerificationService emailVerificationService;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;
+    private PasswordEncoder tokenEncoder;
 
     @BeforeAll
     void cleanUp() {
+        ReflectionTestUtils.setField(
+            userService,
+            "cloudFrontUrl",
+            "https://dummy-cloudfront-url.com"
+        );
+
         ReflectionTestUtils.setField(
             refreshTokenService,
             "maxRefreshTokenCount",
@@ -108,7 +114,7 @@ public class AuthServiceTest {
     void registerUser_shouldReturnCreatedUser() {
         // Arrange
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
 
         EmailVerification emailVerification = EmailVerification.builder()
             .email("test@example.com")
@@ -171,7 +177,7 @@ public class AuthServiceTest {
     @Test
     void registerUser_ShouldThrowException_WhenTokenIsUsedTwice() {
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("test@example.com")
             .emailVerificationToken(hashedToken)
@@ -271,7 +277,7 @@ public class AuthServiceTest {
     @Test
     void registerUser_ShouldThrowException_WhenEmailVerificationTokenIsInvalid() {
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("test@example.com")
             .emailVerificationToken(hashedToken)
@@ -311,7 +317,7 @@ public class AuthServiceTest {
     @Test
     void generateTokens_ShouldReturnTokens_whenUserExists() {
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("test@example.com")
             .emailVerificationToken(hashedToken)
@@ -342,7 +348,7 @@ public class AuthServiceTest {
     @Test
     void generateTokens_ShouldDeleteExpiredRefreshTokens() {
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("test@example.com")
             .emailVerificationToken(hashedToken)
@@ -383,7 +389,7 @@ public class AuthServiceTest {
     @Test
     void generateTokens_ShouldEnforceMaxRefreshTokenCount() {
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("test@example.com")
             .emailVerificationToken(hashedToken)
@@ -453,7 +459,7 @@ public class AuthServiceTest {
     @Test
     void invalidateRefreshToken_ShouldDeleteToken_WhenTokenIsValid() {
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("test@example.com")
             .emailVerificationToken(hashedToken)
@@ -504,7 +510,7 @@ public class AuthServiceTest {
     @Test
     void refreshAccessToken_ShouldReturnNewTokens_WhenRefreshTokenIsValid() {
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("test@example.com")
             .emailVerificationToken(hashedToken)

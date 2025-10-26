@@ -83,12 +83,18 @@ public class RefreshTokenServiceTest {
     private JWTUtils jwtUtils;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;
+    private PasswordEncoder tokenEncoder;
 
     SecretKey key;
 
     @BeforeAll
     void setUp() {
+        ReflectionTestUtils.setField(
+            userService,
+            "cloudFrontUrl",
+            "https://dummy-cloudfront-url.com"
+        );
+
         ReflectionTestUtils.setField(
             emailVerificationService,
             "emailVerificationSecret",
@@ -108,7 +114,7 @@ public class RefreshTokenServiceTest {
 
         // Create an email verification entry
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("testuser@example.com")
             .emailVerificationToken(hashedToken)
