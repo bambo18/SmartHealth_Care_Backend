@@ -22,6 +22,10 @@ public interface EmailVerificationRepository extends JpaRepository<EmailVerifica
     Optional<EmailVerification> findByEmail(String email);
 
     @Modifying(clearAutomatically = true)
+    @Query("UPDATE EmailVerification ev SET ev.emailVerificationTries = ev.emailVerificationTries + 1 WHERE ev.email = :email")
+    int incrementEmailVerificationTriesByEmail(@Param("email") String email);
+
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE EmailVerification ev SET ev.emailVerificationFailCount = ev.emailVerificationFailCount + 1 WHERE ev.email = :email")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     int incrementEmailVerificationFailCountByEmail(@Param("email") String email);
