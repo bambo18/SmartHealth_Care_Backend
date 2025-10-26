@@ -28,7 +28,15 @@ public class FileUploadService {
      */
     public void uploadProfilePicture(User user, MultipartFile file) throws IOException, InvalidRequestDataException {
         validateImageFile(file);
-        s3Uploader.uploadProfilePicture(user, file);
+        byte[] fileBytes;
+        try {
+            fileBytes = file.getBytes(); // READS THE TEMPORARY FILE NOW (on the main thread)
+        } catch (IOException e) {
+            // Handle the error if reading the temporary file fails
+            throw new RuntimeException("Failed to read uploaded file data.", e);
+        }
+
+        s3Uploader.uploadProfilePicture(user, fileBytes, file.getOriginalFilename(), file.getContentType());
     }
 
     /**
