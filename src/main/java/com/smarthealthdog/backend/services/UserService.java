@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +32,9 @@ public class UserService {
     private final PasswordValidator passwordValidator;
     private final NicknameValidator nicknameValidator;
     private final FileUploadService fileUploadService;
+
+    @Value("${cloud.aws.cloudfront.domain}")
+    private String cloudFrontUrl;
 
     /**
      * 사용자 비밀번호 확인
@@ -127,7 +131,7 @@ public class UserService {
             user.getId(),
             user.getNickname(),
             user.getEmail(),
-            user.getProfilePic()
+            getUserProfilePictureURL(user)
         );
     }
 
@@ -149,6 +153,13 @@ public class UserService {
     public Optional<User> getUserByEmail(String email) {
         // Logic to retrieve a user by email
         return userRepository.findByEmail(email);
+    }
+
+    public String getUserProfilePictureURL(User user) {
+        if (user == null || user.getProfilePic() == null || user.getProfilePic().isBlank()) {
+            return null;
+        }
+        return cloudFrontUrl + "/" + user.getProfilePic();
     }
 
     /**
@@ -240,7 +251,7 @@ public class UserService {
             user.getId(),
             user.getNickname(),
             user.getEmail(),
-            user.getProfilePic()
+            getUserProfilePictureURL(user)
         );
     }
 
