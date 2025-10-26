@@ -72,7 +72,7 @@ public class AuthControllerTest {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;
+    private PasswordEncoder tokenEncoder;
 
     @Autowired
     private RoleRepository roleRepository;
@@ -133,6 +133,12 @@ public class AuthControllerTest {
         roleRepository.save(userRole);
 
         roleRepository.flush();
+
+        ReflectionTestUtils.setField(
+            userService,
+            "cloudFrontUrl",
+            "https://dummy-cloudfront-url.com"
+        );
 
         // Initialize JWTUtils
         // generate a 64 hex character secret key for HS256
@@ -233,7 +239,7 @@ public class AuthControllerTest {
     @Test
     void authenticateUser_ShouldReturn401Unauthorized_WhenCredentialsAreInvalid() throws Exception {
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("loginuser@example.com")
             .emailVerificationToken(hashedToken)
@@ -270,7 +276,7 @@ public class AuthControllerTest {
     @Test
     void authenticateUser_ShouldReturn401Unauthorized_WhenBannedUser() throws Exception {
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("validuser@example.com")
             .emailVerificationToken(hashedToken)
@@ -319,7 +325,7 @@ public class AuthControllerTest {
     @Test
     void authenticateUser_ShouldReturn401Unauthorized_WhenSocialUser() throws Exception {
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("validuser@example.com")
             .emailVerificationToken(hashedToken)
@@ -367,7 +373,7 @@ public class AuthControllerTest {
     @Test
     void authenticateUser_ShouldReturn401Unauthorized_WhenDeletedUser() throws Exception {
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("validuser@example.com")
             .emailVerificationToken(hashedToken)
@@ -415,7 +421,7 @@ public class AuthControllerTest {
     @Test
     void authenticateUser_ShouldReturn200OKAndTokens_WhenCredentialsAreValid() throws Exception {
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("validuser@example.com")
             .emailVerificationToken(hashedToken)
@@ -540,7 +546,7 @@ public class AuthControllerTest {
     @Test
     void logoutUser_ShouldReturn204NoContent_WhenRequestIsValid() throws Exception {
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret"); 
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("logoutuser@example.com")
             .emailVerificationToken(hashedToken)
@@ -695,7 +701,7 @@ public class AuthControllerTest {
     void refreshToken_ShouldReturn401Unauthorized_WhenTokenIsExpired() throws Exception {
         Instant now = Instant.now();
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("refreshtestuser@example.com")
             .emailVerificationToken(hashedToken)
@@ -871,7 +877,7 @@ public class AuthControllerTest {
     void registerUser_ShouldReturn201Created_WhenRequestDataIsValid() throws Exception {
         Instant now = Instant.now();
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("testuser@example.com")
             .emailVerificationToken(hashedToken)
@@ -913,7 +919,7 @@ public class AuthControllerTest {
     void registerUser_ShouldReturn400BadRequest_WhenImageIsInvalid() throws Exception {
         Instant now = Instant.now();
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("testuser@example.com")
             .emailVerificationToken(hashedToken)
@@ -986,7 +992,7 @@ public class AuthControllerTest {
     void registerUser_ShouldReturn201Created_WhenImageIsValid() throws Exception {
         Instant now = Instant.now();
         String token = "000000";
-        String hashedToken = passwordEncoder.encode(token + "test-email-verification-secret");
+        String hashedToken = tokenEncoder.encode(token + "test-email-verification-secret");
         EmailVerification emailVerification = EmailVerification.builder()
             .email("testuser@example.com")
             .emailVerificationToken(hashedToken)
