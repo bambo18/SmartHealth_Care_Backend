@@ -31,4 +31,18 @@ public class DateUtils {
         // 3. Instant로 변환하여 반환
         return sundayStartInZone.toInstant();
     }
+
+    // (이번주 전체 산책 리스트(구현))DateUtils.java - 아래 메서드 추가 
+    public Instant getStartOfWeekInstant(ZoneId timeZoneId) {
+        // 해당 타임존의 현재 시각
+        ZonedDateTime nowInZone = ZonedDateTime.now(timeZoneId);
+
+        // 이번 주 월요일 00:00:00 으로 이동
+        ZonedDateTime mondayStartInZone = nowInZone
+                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                .truncatedTo(ChronoUnit.DAYS);
+
+        return mondayStartInZone.toInstant();
+    
+    }
 }

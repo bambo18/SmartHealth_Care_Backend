@@ -43,8 +43,8 @@ public class UserController {
         return ResponseEntity.ok(body);
     }
 
-    /*
-    이번 주 전체 산책 리스트 조회 API (미구현)
+    
+    //이번 주 전체 산책 리스트 조회 API (구현?)
     @GetMapping("/me/walks/this-week")
     @PreAuthorize("hasAuthority('can_view_own_walk_records')")
     public ResponseEntity<?> listThisWeekWalks(
@@ -55,5 +55,5 @@ public class UserController {
         var body = walkService.listThisWeekWalks(userId, timezone);
         return ResponseEntity.ok(body);
     }
-    */
+    
 }
