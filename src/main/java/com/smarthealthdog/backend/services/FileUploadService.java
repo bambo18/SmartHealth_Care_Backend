@@ -40,6 +40,29 @@ public class FileUploadService {
     }
 
     /**
+     * 진단 이미지 업로드
+     * @param submissionId 진단 ID
+     * @param file 업로드할 이미지 파일
+     * @throws InvalidRequestDataException 유효하지 않은 이미지 파일인 경우 발생
+     */
+    public void updateDiagnosisImage(Long submissionId, MultipartFile file) throws InvalidRequestDataException {
+        validateImageFile(file);
+
+        byte[] fileBytes;
+        try {
+            fileBytes = file.getBytes(); // READS THE TEMPORARY FILE NOW (on the main thread)
+        } catch (IOException e) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
+        }
+
+        try {
+            s3Uploader.uploadSubmissionImage(submissionId, fileBytes, file.getOriginalFilename(), file.getContentType());
+        } catch (IOException e) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
+        }
+    }
+
+    /**
      * 업로드된 파일이 유효한 이미지 파일인지 검증
      * @param file 업로드된 파일
      * @throws InvalidRequestDataException 이미지 파일이 아닌 경우 발생
