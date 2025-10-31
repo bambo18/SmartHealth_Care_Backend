@@ -20,6 +20,11 @@ spring:
     user: postgres
     password: ${DB_PASSWORD}
     baseline-on-migrate: true
+    placeholders:
+      ai:
+        user:
+          email: ${AI_MODEL_SERVICE_EMAIL}
+          password-hash: ${AI_MODEL_SERVICE_PASSWORD_HASH}
   mail:
     host: ${SMTP_HOST}
     username: ${SMTP_USER}
@@ -34,6 +39,18 @@ spring:
           starttls:
             enable: true
             required: true
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never
+    properties:
+      org.quartz.jobStore.class: org.springframework.scheduling.quartz.LocalDataSourceJobStore
+      org.quartz.jobStore.driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+      org.quartz.jobStore.isClustered: true
+      org.quartz.jobStore.clusterCheckinInterval: 10000
+      org.quartz.scheduler.instanceId: AUTO
+      org.quartz.scheduler.instanceName: ClusteredQuartzScheduler
+      org.quartz.threadPool.threadCount: 5
 
 jwt:
   secret: ${JWT_SECRET}
