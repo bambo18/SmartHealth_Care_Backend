@@ -27,4 +27,20 @@ public class TokenGenerator {
         }
         return code.toString();
     }
+
+    public String generateDiagnosisUpdateToken() {
+        int length = 32;
+        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder token = new StringBuilder();
+
+        for (int i = 0; i < length; i++) {
+            try {
+                int index = secureRandom.nextInt(characters.length());
+                token.append(characters.charAt(index));
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to generate secure random number", e);
+            }
+        }
+        return token.toString();
+    }
 }

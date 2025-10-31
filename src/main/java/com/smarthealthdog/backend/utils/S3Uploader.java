@@ -10,9 +10,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.smarthealthdog.backend.domain.Pet;
+import com.smarthealthdog.backend.domain.Submission;
+import com.smarthealthdog.backend.domain.SubmissionStatus;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.repositories.PetRepository;
+import com.smarthealthdog.backend.repositories.SubmissionRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.validation.ErrorCode;
 
@@ -27,6 +30,7 @@ public class S3Uploader {
     private final S3Client s3Client;
     private final UserRepository userRepository;
     private final PetRepository petRepository;
+    private final SubmissionRepository submissionRepository;
 
     @Value("${cloud.aws.s3.bucket}")
     private String bucket;
@@ -105,5 +109,52 @@ public class S3Uploader {
         petRepository.save(pet);
 
         return key;
+    }
+
+    /**
+     * S3 버킷에 AI 진단용 이미지 업로드
+     * @param submissionId 서브미션 ID
+     * @param fileBytes 파일 바이트 배열
+     * @param originalFilename 파일 원본 이름
+     * @param contentType 파일 콘텐츠 타입
+     * @throws IOException 이미지 업로드 중 오류 발생 시
+     */
+    @Async
+    @Transactional
+    public void uploadSubmissionImage(
+        Long submissionId,
+        byte[] fileBytes,
+        String originalFilename,
+        String contentType
+    ) throws IOException {
+        Submission submission = submissionRepository.findById(submissionId)
+            .orElseThrow(() -> new InvalidRequestDataException(ErrorCode.INVALID_IMAGE));
+
+        if (fileBytes == null || originalFilename == null || contentType == null) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
+        }
+
+        String ext = originalFilename
+                         .substring(originalFilename.lastIndexOf("."));
+        String key = "diagnoses/" + UUID.randomUUID() + ext;
+
+        try {
+            s3Client.putObject(
+                PutObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(key)
+                    .contentType(contentType)
+                    .build(),
+                RequestBody.fromBytes(fileBytes)
+            );
+        } catch (Exception e) {
+            submission.setStatus(SubmissionStatus.FAILED);
+            submission.setFailureReason("저장소에 이미지 업로드를 실패했습니다.");
+            submissionRepository.save(submission);
+            return;
+        }
+
+        submission.setPhotoUrl(key);
+        submissionRepository.save(submission);
     }
 }
