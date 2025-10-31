@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,6 +25,7 @@ import com.smarthealthdog.backend.dto.CreatePetRequest;
 import com.smarthealthdog.backend.dto.PartialUpdatePetRequest;
 import com.smarthealthdog.backend.dto.PetResponse;
 import com.smarthealthdog.backend.dto.UpdatePetRequest;
+import com.smarthealthdog.backend.services.AIDiagnosisClientService;
 import com.smarthealthdog.backend.services.PetService;
 
 import jakarta.validation.Valid;
@@ -33,8 +35,8 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/pets")
 @RequiredArgsConstructor
 public class PetController {
-
     private final PetService petService;
+    private final AIDiagnosisClientService aiDiagnosisClientService;
 
     /** 반려동물 등록 */
     @PostMapping
@@ -107,7 +109,32 @@ public class PetController {
         Pet updatedPet = petService.partialUpdate(id, updates, Long.parseLong(userDetails.getUsername()), profilePicture);
         return ResponseEntity.ok(PetResponse.from(updatedPet));
     }
+
+    @PostMapping("/{id}/diagnoses/eye")
+    @PreAuthorize("hasAuthority('can_use_health_check')")
+    public ResponseEntity<Void> addEyeDiagnosis(
+            @PathVariable Long id,
+            @RequestPart(value = "image") MultipartFile image,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        Long ownerId = Long.parseLong(userDetails.getUsername());
+        aiDiagnosisClientService.performEyeDiagnosis(image, id, ownerId);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    /** 
+     * 추후에 소변 진단 테스트도 여기에 추가 예정
+     */
+
+    //  @PostMapping("/{id}/diagnoses/urine")
+    //  @PreAuthorize("hasAuthority('can_use_health_check')")
+    //  public ResponseEntity<Void> addUrineDiagnosis(
+    //          @PathVariable Long id,
+    //          @RequestPart(value = "image") MultipartFile image,
+    //          @AuthenticationPrincipal UserDetails userDetails
+    //  ) {
+    //      Long ownerId = Long.parseLong(userDetails.getUsername());
+    //      aiDiagnosisClientService.performUrineDiagnosis(image, id, ownerId);
+    //      return ResponseEntity.status(HttpStatus.CREATED).build();
+    //  }
 }
-//클라이언트 (json요청) -> petController(요청 수신 & dto변환) ->
-//petService(비즈니스 로직, db작업) -> petRepository(jpa퀴러) ->
-//db(저장 및 조회) -> PetResponse(json변환 후 응답)
