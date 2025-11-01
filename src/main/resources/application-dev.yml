@@ -70,6 +70,9 @@ spring:
       org.quartz.scheduler.instanceId: AUTO
       org.quartz.scheduler.instanceName: ClusteredQuartzScheduler
       org.quartz.threadPool.threadCount: 1
+  # web:
+  #   resources:
+  #     static-locations: classpath:/static/
 
 logging:
   level:
