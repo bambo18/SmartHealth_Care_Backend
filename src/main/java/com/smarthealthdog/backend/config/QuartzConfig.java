@@ -54,7 +54,7 @@ public class QuartzConfig {
     public CronTrigger jobTrigger(JobDetail aiInferenceJobDetail) {
         CronTriggerFactoryBean cronTriggerFactoryBean = new CronTriggerFactoryBean();
         cronTriggerFactoryBean.setJobDetail(aiInferenceJobDetail);
-        cronTriggerFactoryBean.setCronExpression("0/10 * * * * ?"); // For testing: run every 10 seconds
+        cronTriggerFactoryBean.setCronExpression("0/20 * * * * ?"); // For testing: run every 20 seconds
 
         try {
             cronTriggerFactoryBean.afterPropertiesSet();
