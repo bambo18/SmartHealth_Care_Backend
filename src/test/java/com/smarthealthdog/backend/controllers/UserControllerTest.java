@@ -47,8 +47,8 @@ import com.smarthealthdog.backend.repositories.RoleRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.services.EmailVerificationService;
 import com.smarthealthdog.backend.services.UserService;
+import com.smarthealthdog.backend.utils.ImageUploader;
 import com.smarthealthdog.backend.utils.JWTUtils;
-import com.smarthealthdog.backend.utils.S3Uploader;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -90,7 +90,7 @@ public class UserControllerTest {
     private EmailVerificationService emailVerificationService;
 
     @MockitoBean
-    private S3Uploader s3Uploader;
+    private ImageUploader imageUploader;
 
     @Autowired
     private UserService userService;

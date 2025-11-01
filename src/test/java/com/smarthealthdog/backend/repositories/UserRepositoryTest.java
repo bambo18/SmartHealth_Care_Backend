@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Optional;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.github.f4b6a3.uuid.UuidCreator;
 import com.smarthealthdog.backend.domain.Permission;
 import com.smarthealthdog.backend.domain.PermissionEnum;
 import com.smarthealthdog.backend.domain.Role;
@@ -59,10 +61,19 @@ class UserRepositoryTest {
         roleRepository.save(role);
     }
 
+    @AfterAll
+    void tearDown() {
+        // Clean up test data
+        userRepository.deleteAll();
+        roleRepository.deleteAll();
+        permissionRepository.deleteAll();
+    }
+
     @Test
     void findByEmail_ShouldReturnUser_WhenEmailExists() {
         // Arrange: Insert test data using the repository itself
         User user = new User();
+        user.setPublicId(UuidCreator.getTimeOrderedEpoch());
         user.setNickname("testuser");
         user.setEmail("test@example.com");
         user.setPassword("hashedpassword");
@@ -82,6 +93,7 @@ class UserRepositoryTest {
     void findByNickname_ShouldReturnUser_WhenNicknameExists() {
         // Arrange: Insert test data using the repository itself
         User user = new User();
+        user.setPublicId(UuidCreator.getTimeOrderedEpoch());
         user.setNickname("testuser");
         user.setEmail("test@example.com");
         user.setPassword("hashedpassword");
@@ -101,6 +113,7 @@ class UserRepositoryTest {
     void existsByEmail_ShouldReturnTrue_WhenEmailExists() {
         // Arrange: Insert test data using the repository itself
         User user = new User();
+        user.setPublicId(UuidCreator.getTimeOrderedEpoch());
         user.setNickname("testuser");
         user.setEmail("test@example.com");
         user.setPassword("hashedpassword");
@@ -119,6 +132,7 @@ class UserRepositoryTest {
     void existsByNickname_ShouldReturnTrue_WhenNicknameExists() {
         // Arrange: Insert test data using the repository itself
         User user = new User();
+        user.setPublicId(UuidCreator.getTimeOrderedEpoch());
         user.setNickname("testuser");
         user.setEmail("test@example.com");
         user.setPassword("hashedpassword");
@@ -136,6 +150,7 @@ class UserRepositoryTest {
     void existsById_ShouldReturnTrue_WhenIdExists() {
         // Arrange: Insert test data using the repository itself
         User user = new User();
+        user.setPublicId(UuidCreator.getTimeOrderedEpoch());
         user.setNickname("testuser");
         user.setEmail("test@example.com");
         user.setPassword("hashedpassword");
@@ -154,6 +169,7 @@ class UserRepositoryTest {
     void incrementEmailVerificationFailCount_ShouldIncrementCount() {
         // Arrange: Insert test data using the repository itself
         User user = new User();
+        user.setPublicId(UuidCreator.getTimeOrderedEpoch());
         user.setNickname("testuser");
         user.setEmail("test@example.com");
         user.setPassword("hashedpassword");
@@ -174,6 +190,7 @@ class UserRepositoryTest {
     void resetEmailVerificationFailCount_ShouldResetCount() {
         // Arrange: Insert test data using the repository itself
         User user = new User();
+        user.setPublicId(UuidCreator.getTimeOrderedEpoch());
         user.setNickname("testuser");
         user.setEmail("test@example.com");
         user.setPassword("hashedpassword");
@@ -192,6 +209,7 @@ class UserRepositoryTest {
     void findUserWithRoleAndPermissionsById_ShouldReturnUserWithRoleAndPermissions() {
         // Arrange: Insert test data using the repository itself
         User user = new User();
+        user.setPublicId(UuidCreator.getTimeOrderedEpoch());
         user.setNickname("testuser");
         user.setEmail("test@example.com");
         user.setPassword("hashedpassword");
