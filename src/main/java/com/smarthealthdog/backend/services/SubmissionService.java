@@ -3,6 +3,7 @@ package com.smarthealthdog.backend.services;
 import java.time.Instant;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.smarthealthdog.backend.domain.Pet;
@@ -59,6 +60,25 @@ public class SubmissionService {
                 .photoUrl("") // 실제 URL은 S3 업로드 후 설정됩니다.
                 .submittedAt(now)
                 .build();
+    }
+
+    /**
+     * 제출을 실패 상태로 업데이트합니다.
+     * @param submissionId 제출 ID
+     * @param failureReason 실패 사유
+     * @return 업데이트된 제출 정보
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Submission failSubmission(Submission submission, String failureReason) {
+        if (submission.getStatus() != SubmissionStatus.PROCESSING) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_INPUT);
+        }
+
+        submission.setStatus(SubmissionStatus.FAILED);
+        submission.setFailureReason(failureReason);
+        submission.setCompletedAt(Instant.now());
+
+        return submissionRepository.save(submission);
     }
 
     /**

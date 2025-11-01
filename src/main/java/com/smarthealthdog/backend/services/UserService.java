@@ -3,6 +3,7 @@ package com.smarthealthdog.backend.services;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.github.f4b6a3.uuid.UuidCreator;
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.UpdateUserProfileRequest;
@@ -83,8 +85,10 @@ public class UserService {
 
         Role userRole = roleService.getUserRole();
 
+        UUID publicId = UuidCreator.getTimeOrderedEpoch();
         String hashedPassword = passwordEncoder.encode(password);
         User newUser = User.builder()
+                            .publicId(publicId)
                             .nickname(nickname)
                             .email(email)
                             .password(hashedPassword)
