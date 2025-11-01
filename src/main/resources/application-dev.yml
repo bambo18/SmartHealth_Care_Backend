@@ -124,3 +124,7 @@ cloud:
       bucket: ${AWS_S3_BUCKET}
     cloudfront:
       domain: ${AWS_CLOUDFRONT_DOMAIN}
+
+local-storage:
+  url-prefix: ${LOCAL_STORAGE_URL_PREFIX}
+  ai-url-prefix: ${AI_MODEL_SERVICE_URL_PREFIX}
