@@ -2,6 +2,7 @@ package com.smarthealthdog.backend.services;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.smarthealthdog.backend.domain.Pet;
@@ -30,6 +31,7 @@ public class DevAIDiagnosisClientService implements AIDiagnosisClientService {
      * @throws InvalidRequestDataException 이미지 업로드에 실패한 경우
      */
     @Override
+    @Transactional
     public void performEyeDiagnosis(MultipartFile imageFile, Long petId, Long ownerId) {
         if (petId == null || ownerId == null) {
             throw new IllegalArgumentException("Pet ID and Owner ID must not be null for eye diagnosis.");
@@ -44,6 +46,6 @@ public class DevAIDiagnosisClientService implements AIDiagnosisClientService {
         Submission submission = submissionService.saveSubmission(submissionBuild);
 
         // 진단 이미지 업로드
-        fileUploadService.updateDiagnosisImage(submission.getId(), imageFile);
+        fileUploadService.updateDiagnosisImage(submission, imageFile);
     }
 }

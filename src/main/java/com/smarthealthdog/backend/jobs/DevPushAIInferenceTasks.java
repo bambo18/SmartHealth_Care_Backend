@@ -2,6 +2,7 @@ package com.smarthealthdog.backend.jobs;
 
 import java.util.List;
 
+import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.springframework.stereotype.Component;
@@ -12,13 +13,14 @@ import com.smarthealthdog.backend.domain.Submission;
 import com.smarthealthdog.backend.domain.SubmissionStatus;
 import com.smarthealthdog.backend.dto.diagnosis.create.RequestDiagnosisData;
 import com.smarthealthdog.backend.repositories.SubmissionRepository;
-import com.smarthealthdog.backend.utils.ImgUtils;
 import com.smarthealthdog.backend.utils.DiagnosisTaskRequestClient;
+import com.smarthealthdog.backend.utils.ImgUtils;
 
 import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
+@DisallowConcurrentExecution
 public class DevPushAIInferenceTasks implements Job {
     private final ImgUtils imgUtils;
     private final SubmissionRepository submissionRepository;
@@ -35,7 +37,7 @@ public class DevPushAIInferenceTasks implements Job {
 
         List<RequestDiagnosisData> requestDataList = submissions.stream()
             .map(submission -> {
-                String imageURL = imgUtils.getImgUrl(submission.getPhotoUrl());
+                String imageURL = imgUtils.getImgUrlForAIWorker(submission.getPhotoUrl());
                 Long submissionId = submission.getId();
                 PetSpecies species = submission.getPet().getSpecies();
 
