@@ -4,19 +4,23 @@ import java.io.IOException;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.smarthealthdog.backend.domain.Pet;
 import com.smarthealthdog.backend.domain.Submission;
-import com.smarthealthdog.backend.domain.SubmissionStatus;
-import com.smarthealthdog.backend.domain.User;
+import com.smarthealthdog.backend.dto.diagnosis.create.SubmissionImageUploadEvent;
+import com.smarthealthdog.backend.dto.users.UserProfilePictureUploadEvent;
+import com.smarthealthdog.backend.exceptions.InternalServerErrorException;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.repositories.PetRepository;
-import com.smarthealthdog.backend.repositories.SubmissionRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
+import com.smarthealthdog.backend.services.SubmissionService;
 import com.smarthealthdog.backend.validation.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
@@ -26,11 +30,12 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @RequiredArgsConstructor
 @Component
-public class S3Uploader {
+@Profile("prod")
+public class S3Uploader implements ImageUploader {
     private final S3Client s3Client;
     private final UserRepository userRepository;
     private final PetRepository petRepository;
-    private final SubmissionRepository submissionRepository;
+    private final SubmissionService submissionService;
 
     @Value("${cloud.aws.s3.bucket}")
     private String bucket;
@@ -44,47 +49,53 @@ public class S3Uploader {
      * @return 파일 URL
      * @throws IOException
      */
+    @Override
     @Async
-    @Transactional
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void uploadProfilePicture(
-        User user, 
-        byte[] fileBytes,
-        String originalFilename,
-        String contentType
+        UserProfilePictureUploadEvent event
     ) throws IOException {
-        if (user == null) {
+        if (event.user() == null) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
         }
 
-        if (originalFilename == null || originalFilename.isEmpty()) {
+        if (event.originalFilename() == null || event.originalFilename().isEmpty()) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
         }
 
-        if (contentType == null || contentType.isEmpty()) {
+        if (event.contentType() == null || event.contentType().isEmpty()) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
         }
 
-        if (fileBytes == null || fileBytes.length == 0) {
+        if (event.fileBytes() == null || event.fileBytes().length == 0) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
         }
 
-        String ext = originalFilename
-                         .substring(originalFilename.lastIndexOf("."));
+        String ext = event.originalFilename()
+                         .substring(event.originalFilename().lastIndexOf("."));
         String key = "profiles/" + UUID.randomUUID() + ext;
 
         s3Client.putObject(
             PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)
-                .contentType(contentType)
+                .contentType(event.contentType())
                 .build(),
-            RequestBody.fromBytes(fileBytes)
+            RequestBody.fromBytes(event.fileBytes())
         );
 
-        user.setProfilePic(key);
-        userRepository.save(user);
+        event.user().setProfilePic(key);
+        userRepository.save(event.user());
     }
 
+    /**
+     * S3 버킷에 반려동물 이미지 업로드
+     * @param pet 반려동물 엔티티
+     * @param file 업로드할 파일
+     * @return 업로드된 파일의 S3 키
+     * @throws IOException 이미지 업로드 중 오류 발생 시
+     */
+    @Override
     @Async
     @Transactional
     public String uploadPetImage(Pet pet, MultipartFile file) throws IOException {
@@ -119,23 +130,20 @@ public class S3Uploader {
      * @param contentType 파일 콘텐츠 타입
      * @throws IOException 이미지 업로드 중 오류 발생 시
      */
+    @Override
     @Async
-    @Transactional
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void uploadSubmissionImage(
-        Long submissionId,
-        byte[] fileBytes,
-        String originalFilename,
-        String contentType
+        SubmissionImageUploadEvent event
     ) throws IOException {
-        Submission submission = submissionRepository.findById(submissionId)
-            .orElseThrow(() -> new InvalidRequestDataException(ErrorCode.INVALID_IMAGE));
+        Submission submission = event.submission();
 
-        if (fileBytes == null || originalFilename == null || contentType == null) {
+        if (event.fileBytes() == null || event.originalFilename() == null || event.contentType() == null) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
         }
 
-        String ext = originalFilename
-                         .substring(originalFilename.lastIndexOf("."));
+        String ext = event.originalFilename()
+                         .substring(event.originalFilename().lastIndexOf("."));
         String key = "diagnoses/" + UUID.randomUUID() + ext;
 
         try {
@@ -143,18 +151,17 @@ public class S3Uploader {
                 PutObjectRequest.builder()
                     .bucket(bucket)
                     .key(key)
-                    .contentType(contentType)
+                    .contentType(event.contentType())
                     .build(),
-                RequestBody.fromBytes(fileBytes)
+                RequestBody.fromBytes(event.fileBytes())
             );
         } catch (Exception e) {
-            submission.setStatus(SubmissionStatus.FAILED);
-            submission.setFailureReason("저장소에 이미지 업로드를 실패했습니다.");
-            submissionRepository.save(submission);
-            return;
+            // TODO: 업로드 실패 시, Sentry나 로그 시스템에 알림 전송 기능 필요
+            submissionService.failSubmission(submission, "저장소에 이미지 업로드 실패");
+            throw new InternalServerErrorException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
 
         submission.setPhotoUrl(key);
-        submissionRepository.save(submission);
+        submissionService.saveSubmission(submission);
     }
 }

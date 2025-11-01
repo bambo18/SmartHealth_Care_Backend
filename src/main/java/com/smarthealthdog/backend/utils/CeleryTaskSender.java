@@ -22,7 +22,7 @@ import com.smarthealthdog.backend.dto.diagnosis.celery.MessageProperties;
 import com.smarthealthdog.backend.dto.diagnosis.create.RequestDiagnosisData;
 
 @Component
-@Profile("dev")
+@Profile({"dev", "test"})
 public class CeleryTaskSender implements DiagnosisTaskRequestClient {
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
