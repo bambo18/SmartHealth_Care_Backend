@@ -9,9 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.smarthealthdog.backend.domain.Shelter;
-import com.smarthealthdog.backend.dto.ShelterItem;
-import com.smarthealthdog.backend.dto.ShelterItem.Location;
-import com.smarthealthdog.backend.dto.ShelterSearchResponse;
+import com.smarthealthdog.backend.dto.shelter.ShelterItem;
+import com.smarthealthdog.backend.dto.shelter.ShelterItem.Location;
+import com.smarthealthdog.backend.dto.shelter.ShelterSearchResponse;
 import com.smarthealthdog.backend.repositories.ShelterSearchRepository;
 
 import lombok.RequiredArgsConstructor;

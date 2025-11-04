@@ -1,4 +1,4 @@
-package com.smarthealthdog.backend.dto;
+package com.smarthealthdog.backend.dto.shelter;
 
 import java.util.List;
 

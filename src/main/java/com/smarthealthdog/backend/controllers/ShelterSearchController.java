@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.smarthealthdog.backend.dto.ShelterSearchResponse;
+import com.smarthealthdog.backend.dto.shelter.ShelterSearchResponse;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.services.ShelterSearchService;
 import com.smarthealthdog.backend.validation.ErrorCode;
