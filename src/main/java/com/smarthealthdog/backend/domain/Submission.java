@@ -9,6 +9,7 @@ import lombok.Builder;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "submissions")
@@ -18,9 +19,8 @@ import java.util.Set;
 @AllArgsConstructor
 public class Submission {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
-    private Long id;
+    private UUID id;
 
     // Foreign Key: Links this submission directly to a specific pet
     @NotNull

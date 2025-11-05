@@ -40,6 +40,7 @@ spring:
             enable: true
             required: true
   quartz:
+    auto-startup: false
     job-store-type: jdbc
     jdbc:
       initialize-schema: never
@@ -51,6 +52,14 @@ spring:
       org.quartz.scheduler.instanceId: AUTO
       org.quartz.scheduler.instanceName: ClusteredQuartzScheduler
       org.quartz.threadPool.threadCount: 5
+  security:
+    oauth2:
+      client:
+        provider:
+          google:
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+          kakao:
+            user-info-uri: https://kapi.kakao.com/v2/user/me
 
 jwt:
   secret: ${JWT_SECRET}
