@@ -17,6 +17,7 @@ import com.smarthealthdog.backend.domain.SocialLoginUser;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.UpdateUserProfileRequest;
 import com.smarthealthdog.backend.dto.UserProfile;
+import com.smarthealthdog.backend.exceptions.InternalServerErrorException;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.repositories.SocialLoginUserRepository;
@@ -52,36 +53,38 @@ public class UserService {
     }
 
     /**
-     * 사용자 역할을 VERIFIED_USER로 변경
-     * @param user
-     */
-    @Transactional
-    public void changeRoleToVerifiedUser(User user) {
-        Role userRole = roleService.getUserRole();
-        user.setRole(userRole);
-        userRepository.save(user);
-    }
-
-    /**
      * 카카오 소셜 로그인으로 사용자 생성
      * @param kakaoUserInfo 카카오에서 제공하는 사용자 정보 JSON
      * @return 생성된 사용자 객체
      */
     @Transactional
     public User createUserWithKakaoUserInfo(JsonNode kakaoUserInfo) {
-        String email = kakaoUserInfo.path("kakao_account").path("email").asText();
+        if (kakaoUserInfo == null || kakaoUserInfo.isEmpty()) {
+            throw new IllegalArgumentException("카카오 사용자 정보가 유효하지 않습니다.");
+        }
 
-        if (email == null) {
+        JsonNode kakaoAccount = kakaoUserInfo.get("kakao_account");
+        if (kakaoAccount == null || kakaoAccount.isEmpty()) {
+            throw new InternalServerErrorException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+
+        String email = kakaoAccount.path("email").asText();
+        if (email == null || email.isBlank()) {
             email = "kakao_" + UUID.randomUUID().toString().replaceAll("-", "") + "@noemail.smarthealthdog.com";
         }
 
-        String nickname = kakaoUserInfo.path("kakao_account").path("profile").path("nickname").asText();
-        if (!nicknameValidator.isValid(nickname)) {
+        JsonNode profile = kakaoAccount.path("profile");
+
+        String nickname = profile.path("nickname").asText();
+        if (nickname == null || nickname.isBlank() || !nicknameValidator.isValid(nickname)) {
             String uuid = UUID.randomUUID().toString();
             nickname = uuid;
         }
 
-        String profilePictureUrl = kakaoUserInfo.path("kakao_account").path("profile").path("profile_image_url").asText();
+        String profilePictureUrl = profile.path("profile_image_url").asText();
+        if (profilePictureUrl == null || profilePictureUrl.isBlank()) {
+            profilePictureUrl = null;
+        }
         
         // 3. User Object Assembly
         Role userRole = roleService.getSocialUserRole();
@@ -344,7 +347,7 @@ public class UserService {
     /**
      * 닉네임으로 사용자 존재 여부 확인
      * @param nickname
-     * @return true if user exists, false otherwise
+     * @return Boolean
      */
     public boolean userExistsByNickname(String nickname) {
         // Logic to check if a user exists by nickname
@@ -354,7 +357,7 @@ public class UserService {
     /**
      * ID로 사용자 존재 여부 확인
      * @param id
-     * @return true if user exists, false otherwise
+     * @return Boolean
      */
     public boolean userExistsById(Long id) {
         // Logic to check if a user exists by ID

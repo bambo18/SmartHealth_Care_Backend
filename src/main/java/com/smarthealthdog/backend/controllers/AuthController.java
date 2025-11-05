@@ -76,7 +76,6 @@ public class AuthController {
     @PostMapping("/login/social/kakao")
     public ResponseEntity<Void> registerUserForSocialLoginKakao(@RequestBody CreateSocialKakaoUserRequest request) {
         authService.registerUserViaKakaoInfo(request.accessToken());
-
         return ResponseEntity.status(HttpStatus.CREATED).body(null);
     }
 }
