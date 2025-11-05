@@ -144,7 +144,7 @@ public class CeleryTaskSender implements DiagnosisTaskRequestClient {
      * @throws JsonProcessingException
      */
     private String generateCeleryMessage(
-        String imagePath, Long submissionId, PetSpecies species
+        String imagePath, UUID submissionId, PetSpecies species
     ) throws JsonProcessingException {
         try {
             String taskId = UUID.randomUUID().toString();
@@ -207,7 +207,7 @@ public class CeleryTaskSender implements DiagnosisTaskRequestClient {
      * @throws JsonProcessingException
      */
     private String generateCeleryBody(
-        String imagePath, Long submissionId
+        String imagePath, UUID submissionId
     ) throws JsonProcessingException {
         ObjectMapper objectMapper = new ObjectMapper();
 
