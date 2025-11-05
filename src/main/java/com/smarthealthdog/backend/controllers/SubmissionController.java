@@ -1,5 +1,7 @@
 package com.smarthealthdog.backend.controllers;
 
+import java.util.UUID;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -23,7 +25,7 @@ public class SubmissionController {
     @PatchMapping("/{id}")
     @PreAuthorize("hasAuthority('can_update_health_records')")
     public ResponseEntity<Void> updateDiagnosis(
-            @PathVariable("id") Long submissionId,
+            @PathVariable("id") UUID submissionId,
             @Valid @RequestBody SubmissionResultRequest request
     ) {
         submissionService.completeDiagnosis(submissionId, request);

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.smarthealthdog.backend.dto.CreateSocialKakaoUserRequest;
 import com.smarthealthdog.backend.dto.EmailVerificationCodeRequest;
 import com.smarthealthdog.backend.dto.LoginRequest;
 import com.smarthealthdog.backend.dto.LoginResponse;
@@ -70,5 +71,12 @@ public class AuthController {
     public ResponseEntity<LoginResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest refreshToken) {
         LoginResponse response = authService.refreshAccessToken(refreshToken.refreshToken());
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/login/social/kakao")
+    public ResponseEntity<Void> registerUserForSocialLoginKakao(@RequestBody CreateSocialKakaoUserRequest request) {
+        authService.registerUserViaKakaoInfo(request.accessToken());
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(null);
     }
 }
