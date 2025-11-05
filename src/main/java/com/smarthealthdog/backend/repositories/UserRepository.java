@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository  // Optional, but recommended for clarity
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -19,6 +20,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
     Optional<User> findByNickname(String nickname);
+    Optional<User> findByPublicId(UUID publicId);
 
     @Modifying
     @Query("UPDATE User u SET u.emailVerificationFailCount = u.emailVerificationFailCount + 1 WHERE u.id = :userId")
@@ -30,4 +32,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @EntityGraph(attributePaths = {"role", "role.permissions"})
     Optional<User> findUserWithRoleAndPermissionsById(Long id);
+
+    @EntityGraph(attributePaths = {"role", "role.permissions"})
+    Optional<User> findUserWithRoleAndPermissionsByPublicId(UUID publicId);
 }
