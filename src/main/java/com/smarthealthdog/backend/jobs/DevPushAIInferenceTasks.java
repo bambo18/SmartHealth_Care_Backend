@@ -1,6 +1,7 @@
 package com.smarthealthdog.backend.jobs;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
@@ -38,14 +39,14 @@ public class DevPushAIInferenceTasks implements Job {
         List<RequestDiagnosisData> requestDataList = submissions.stream()
             .map(submission -> {
                 String imageURL = imgUtils.getImgUrlForAIWorker(submission.getPhotoUrl());
-                Long submissionId = submission.getId();
+                UUID submissionId = submission.getId();
                 PetSpecies species = submission.getPet().getSpecies();
 
                 return new RequestDiagnosisData(imageURL, submissionId, species);
             })
             .toList();
 
-        List<Long> submissionIds = submissions.stream()
+        List<UUID> submissionIds = submissions.stream()
             .map(Submission::getId)
             .toList();
 
