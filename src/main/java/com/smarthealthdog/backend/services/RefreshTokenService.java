@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.github.f4b6a3.uuid.UuidCreator;
 import com.smarthealthdog.backend.domain.RefreshToken;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.exceptions.BadCredentialsException;
@@ -71,13 +72,13 @@ public class RefreshTokenService {
 
         RefreshToken refreshToken = RefreshToken.builder()
             .user(user)
-            .id(UUID.randomUUID())
+            .id(UuidCreator.getTimeOrderedEpoch()) // UUID v7 생성
             .expiresAt(expiresAt)
             .build();
 
         refreshTokenRepository.save(refreshToken);
         return jwtUtils.generateRefreshToken(
-            user.getId().toString(), 
+            user.getPublicId().toString(),
             refreshToken.getId(), 
             issuedAt
         );
@@ -137,7 +138,7 @@ public class RefreshTokenService {
 
         RefreshToken refreshToken = RefreshToken.builder()
             .user(user)
-            .id(UUID.randomUUID())
+            .id(UuidCreator.getTimeOrderedEpoch()) // UUID v7 생성
             .expiresAt(expiresAt)
             .build();
 
@@ -148,7 +149,7 @@ public class RefreshTokenService {
 
         // 새 토큰 생성
         return jwtUtils.generateRefreshToken(
-            user.getId().toString(), 
+            user.getPublicId().toString(), 
             refreshToken.getId(), 
             issuedAt
         );
@@ -254,8 +255,7 @@ public class RefreshTokenService {
             return null;
         }
 
-        return userService.getUserById(Long.parseLong(userId))
-                          .orElse(null);
+        return userService.getUserByPublicId(UUID.fromString(userId));
     }
 
     /**
@@ -338,9 +338,8 @@ public class RefreshTokenService {
 
         User user;
         try {
-            user = userService.getUserById(Long.parseLong(userId))
-                .orElseThrow(() -> new BadCredentialsException(ErrorCode.INVALID_JWT));
-        } catch (NumberFormatException e) {
+            user = userService.getUserByPublicId(UUID.fromString(userId));
+        } catch (IllegalArgumentException e) {
             throw new BadCredentialsException(ErrorCode.INVALID_JWT);
         }
 
@@ -377,8 +376,8 @@ public class RefreshTokenService {
 
         // 유저 ID가 숫자 형식인지 확인
         try {
-            Long.parseLong(userId);
-        } catch (NumberFormatException e) {
+            UUID.fromString(userId);
+        } catch (IllegalArgumentException e) {
             throw new BadCredentialsException(ErrorCode.INVALID_JWT);
         }
 
@@ -419,13 +418,12 @@ public class RefreshTokenService {
             throw new BadCredentialsException(ErrorCode.INVALID_JWT);
         }
 
-        // 유저 ID가 숫자 형식인지 확인
+        // 유저 ID가 UUID 형식인지 확인 후 유저 조회 
         User user;
         try {
-            Long userIdInLong = Long.parseLong(userId);
-            user = userService.getUserById(userIdInLong)
-                .orElseThrow(() -> new BadCredentialsException(ErrorCode.INVALID_JWT));
-        } catch (NumberFormatException e) {
+            UUID publicId = UUID.fromString(userId);
+            user = userService.getUserByPublicId(publicId);
+        } catch (IllegalArgumentException e) {
             throw new BadCredentialsException(ErrorCode.INVALID_JWT);
         }
 
