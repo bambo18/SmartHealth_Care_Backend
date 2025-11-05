@@ -39,4 +39,15 @@ public class ShelterController {
                 shelterService.listAdoptionPets(shelterId, status, limit, offset)
         );
     }
+
+    //입양 가능 동물 상세 조회
+    @GetMapping("/{shelterId}/pets/{petId}")
+    public ResponseEntity<?> getAdoptionPetDetail(
+            @PathVariable Long shelterId,
+            @PathVariable Long petId
+    ) {
+        var detail = shelterService.getAdoptionPetDetail(shelterId, petId);
+        // 명세처럼 "pet": {...} 래핑
+        return ResponseEntity.ok(java.util.Map.of("pet", detail));
+    }
 }
