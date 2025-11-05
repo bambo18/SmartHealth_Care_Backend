@@ -1,11 +1,13 @@
 package com.smarthealthdog.backend.services;
 
 import java.time.Instant;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.github.f4b6a3.uuid.UuidCreator;
 import com.smarthealthdog.backend.domain.Pet;
 import com.smarthealthdog.backend.domain.Submission;
 import com.smarthealthdog.backend.domain.SubmissionStatus;
@@ -30,7 +32,7 @@ public class SubmissionService {
      * @return 업데이트된 제출 정보
      */
     @Transactional
-    public Submission completeDiagnosis(Long submissionId, SubmissionResultRequest request) {
+    public Submission completeDiagnosis(UUID submissionId, SubmissionResultRequest request) {
         Submission submission = getSubmissionById(submissionId);
         if (submission.getStatus() != SubmissionStatus.PROCESSING) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_INPUT);
@@ -56,6 +58,7 @@ public class SubmissionService {
         Instant now = Instant.now();
 
         return Submission.builder()
+                .id(UuidCreator.getTimeOrderedEpoch())
                 .pet(pet)
                 .photoUrl("") // 실제 URL은 S3 업로드 후 설정됩니다.
                 .submittedAt(now)
@@ -86,7 +89,7 @@ public class SubmissionService {
      * @param id 진단 제출 ID
      * @return 제출 정보
      */
-    public Submission getSubmissionById(Long id) {
+    public Submission getSubmissionById(UUID id) {
         return submissionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND));
     }
