@@ -25,6 +25,7 @@ import com.smarthealthdog.backend.dto.UserProfile;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.repositories.UserRepository;
+import com.smarthealthdog.backend.utils.ImgUtils;
 import com.smarthealthdog.backend.validation.NicknameValidator;
 import com.smarthealthdog.backend.validation.PasswordValidator;
 
@@ -47,6 +48,9 @@ public class UserServiceUT {
 
     @Mock 
     private FileUploadService fileUploadService;
+
+    @Mock
+    private ImgUtils imgUtils;
 
     @InjectMocks
     private UserService userService;

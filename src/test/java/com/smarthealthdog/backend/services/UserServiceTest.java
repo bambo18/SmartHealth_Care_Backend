@@ -30,6 +30,7 @@ import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.repositories.PermissionRepository;
 import com.smarthealthdog.backend.repositories.RoleRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
+import com.smarthealthdog.backend.utils.ImgUtils;
 
 
 @TestInstance(Lifecycle.PER_CLASS)
@@ -51,12 +52,21 @@ public class UserServiceTest {
     @Autowired
     private UserService userService;
 
+    @Autowired
+    private ImgUtils imgUtils;
+
     @BeforeAll
     void setup() {
         ReflectionTestUtils.setField(
-            userService,
-            "cloudFrontUrl",
-            "https://dummy-cloudfront-url.com"
+            imgUtils,
+            "localStorageUrlPrefix",
+            "http://localhost:8080/images/"
+        );
+
+        ReflectionTestUtils.setField(
+            imgUtils,
+            "aiModelServiceUrlPrefix",
+            "http://localhost:9090/ai/images/"
         );
 
         // iterate over Enum values and create permissions

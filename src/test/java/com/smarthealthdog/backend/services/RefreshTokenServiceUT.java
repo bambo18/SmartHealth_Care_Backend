@@ -195,8 +195,9 @@ public class RefreshTokenServiceUT {
         // ARRANGE
         when(jwtUtils.getAllClaimsFromToken(MOCK_REFRESH_TOKEN)).thenReturn(mockJws);
         when(mockJws.getPayload()).thenReturn(mockClaims);
-        when(mockClaims.getSubject()).thenReturn("1234");
-        when(userService.getUserById(1234L)).thenReturn(Optional.empty());
+        UUID subjectUuid = UUID.randomUUID();
+        when(mockClaims.getSubject()).thenReturn(subjectUuid.toString());
+        when(userService.getUserByPublicId(subjectUuid)).thenReturn(null);
 
         // ACT
         User user = refreshTokenService.getUserFromToken(MOCK_REFRESH_TOKEN);
@@ -210,8 +211,9 @@ public class RefreshTokenServiceUT {
         // ARRANGE
         when(jwtUtils.getAllClaimsFromToken(MOCK_REFRESH_TOKEN)).thenReturn(mockJws);
         when(mockJws.getPayload()).thenReturn(mockClaims);
-        when(mockClaims.getSubject()).thenReturn("1234");
-        when(userService.getUserById(1234L)).thenReturn(Optional.of(mockUser));
+        UUID subjectUuid = UUID.randomUUID();
+        when(mockClaims.getSubject()).thenReturn(subjectUuid.toString());
+        when(userService.getUserByPublicId(subjectUuid)).thenReturn(mockUser);
 
         // ACT
         User user = refreshTokenService.getUserFromToken(MOCK_REFRESH_TOKEN);
@@ -306,8 +308,10 @@ public class RefreshTokenServiceUT {
 
         when(jwtUtils.getAllClaimsFromToken(MOCK_REFRESH_TOKEN)).thenReturn(mockJws);
         when(mockJws.getPayload()).thenReturn(mockClaims);
-        when(mockClaims.getSubject()).thenReturn("1234");
-        when(userService.getUserById(1234L)).thenReturn(Optional.of(mockUser));
+
+        UUID subjectUuid = UUID.randomUUID();
+        when(mockClaims.getSubject()).thenReturn(subjectUuid.toString());
+        when(userService.getUserByPublicId(subjectUuid)).thenReturn(mockUser);
         when(mockClaims.getId()).thenReturn(UUID.randomUUID().toString());
         when(refreshTokenRepository.findById(any(UUID.class))).thenReturn(
             Optional.of(mockRefreshToken)
@@ -388,6 +392,7 @@ public class RefreshTokenServiceUT {
             7L // Use 'L' for a Long value
         );
 
+        when(mockUser.getPublicId()).thenReturn(UUID.randomUUID());
         when(refreshTokenRepository.save(any())).thenAnswer(i -> i.getArguments()[0]);
         when(jwtUtils.generateRefreshToken(
             any(String.class), 
@@ -440,22 +445,10 @@ public class RefreshTokenServiceUT {
     }
 
     @Test
-    void generateRefreshTokenWithOldToken_ShouldThrowBadCredentialsException_WhenSubjectIsNotNumeric() {
+    void generateRefreshTokenWithOldToken_ShouldThrowBadCredentialsException_WhenSubjectIsNotUUID() {
         when(jwtUtils.getAllClaimsFromToken(MOCK_REFRESH_TOKEN)).thenReturn(mockJws);
         when(mockJws.getPayload()).thenReturn(mockClaims);
-        when(mockClaims.getSubject()).thenReturn("non-numeric");
-
-        assertThrows(BadCredentialsException.class, () -> {
-            refreshTokenService.generateRefreshTokenWithOldToken(mockUser, MOCK_REFRESH_TOKEN);
-        });
-    }
-
-    @Test
-    void generateRefreshTokenWithOldToken_ShouldThrowBadCredentialsException_WhenUserDoesNotExist() {
-        when(jwtUtils.getAllClaimsFromToken(MOCK_REFRESH_TOKEN)).thenReturn(mockJws);
-        when(mockJws.getPayload()).thenReturn(mockClaims);
-        when(mockClaims.getSubject()).thenReturn("1234");
-        when(userService.getUserById(1234L)).thenReturn(Optional.empty());
+        when(mockClaims.getSubject()).thenReturn("not-a-uuid");
 
         assertThrows(BadCredentialsException.class, () -> {
             refreshTokenService.generateRefreshTokenWithOldToken(mockUser, MOCK_REFRESH_TOKEN);
@@ -466,8 +459,9 @@ public class RefreshTokenServiceUT {
     void generateRefreshTokenWithOldToken_ShouldThrowBadCredentialsException_WhenJTIIsNullOrEmpty() {
         when(jwtUtils.getAllClaimsFromToken(MOCK_REFRESH_TOKEN)).thenReturn(mockJws);
         when(mockJws.getPayload()).thenReturn(mockClaims);
-        when(mockClaims.getSubject()).thenReturn("1234");
-        when(userService.getUserById(1234L)).thenReturn(Optional.of(mockUser));
+        UUID subjectUuid = UUID.randomUUID();
+        when(mockClaims.getSubject()).thenReturn(subjectUuid.toString());
+        when(userService.getUserByPublicId(subjectUuid)).thenReturn(mockUser);
 
         when(mockClaims.getId()).thenReturn(null);
         assertThrows(BadCredentialsException.class, () -> {
@@ -484,8 +478,9 @@ public class RefreshTokenServiceUT {
     void generateRefreshTokenWithOldToken_ShouldThrowBadCredentialsException_WhenJTIIsInvalidUUID() {
         when(jwtUtils.getAllClaimsFromToken(MOCK_REFRESH_TOKEN)).thenReturn(mockJws);
         when(mockJws.getPayload()).thenReturn(mockClaims);
-        when(mockClaims.getSubject()).thenReturn("1234");
-        when(userService.getUserById(1234L)).thenReturn(Optional.of(mockUser));
+        UUID subjectUuid = UUID.randomUUID();
+        when(mockClaims.getSubject()).thenReturn(subjectUuid.toString());
+        when(userService.getUserByPublicId(subjectUuid)).thenReturn(mockUser);
         when(mockClaims.getId()).thenReturn("invalid-uuid");
 
         assertThrows(BadCredentialsException.class, () -> {
@@ -497,8 +492,9 @@ public class RefreshTokenServiceUT {
     void generateRefreshTokenWithOldToken_ShouldThrowBadCredentialsException_WhenTokenNotInDatabase() {
         when(jwtUtils.getAllClaimsFromToken(MOCK_REFRESH_TOKEN)).thenReturn(mockJws);
         when(mockJws.getPayload()).thenReturn(mockClaims);
-        when(mockClaims.getSubject()).thenReturn("1234");
-        when(userService.getUserById(1234L)).thenReturn(Optional.of(mockUser));
+        UUID subjectUuid = UUID.randomUUID();
+        when(mockClaims.getSubject()).thenReturn(subjectUuid.toString());
+        when(userService.getUserByPublicId(subjectUuid)).thenReturn(mockUser);
         when(mockClaims.getId()).thenReturn(UUID.randomUUID().toString());
         when(refreshTokenRepository.findById(any(UUID.class))).thenReturn(Optional.empty());
 
@@ -521,8 +517,9 @@ public class RefreshTokenServiceUT {
 
         when(jwtUtils.getAllClaimsFromToken(MOCK_REFRESH_TOKEN)).thenReturn(mockJws);
         when(mockJws.getPayload()).thenReturn(mockClaims);
-        when(mockClaims.getSubject()).thenReturn("1234");
-        when(userService.getUserById(1234L)).thenReturn(Optional.of(mockUser));
+        UUID subjectUuid = UUID.randomUUID();
+        when(mockClaims.getSubject()).thenReturn(subjectUuid.toString());
+        when(userService.getUserByPublicId(subjectUuid)).thenReturn(mockUser);
         when(mockClaims.getId()).thenReturn(UUID.randomUUID().toString());
         when(refreshTokenRepository.findById(any(UUID.class))).thenReturn(
             Optional.of(anotherUserToken)
@@ -553,8 +550,9 @@ public class RefreshTokenServiceUT {
         // ARRANGE
         when(jwtUtils.getAllClaimsFromToken(MOCK_REFRESH_TOKEN)).thenReturn(mockJws);
         when(mockJws.getPayload()).thenReturn(mockClaims);
-        when(mockClaims.getSubject()).thenReturn("1234");
-        when(userService.getUserById(1234L)).thenReturn(Optional.of(mockUser));
+        String tokenId = UUID.randomUUID().toString();
+        when(mockClaims.getSubject()).thenReturn(tokenId);
+        when(userService.getUserByPublicId(UUID.fromString(tokenId))).thenReturn(mockUser);
         when(mockClaims.getId()).thenReturn(UUID.randomUUID().toString());
         when(refreshTokenRepository.findById(any(UUID.class))).thenReturn(
             Optional.of(mock(RefreshToken.class))
@@ -730,10 +728,11 @@ public class RefreshTokenServiceUT {
     void rotateRefreshToken_ShouldThrowBadCredentialsException_WhenUserDoesNotExist() {
         when(jwtUtils.getAllClaimsFromToken(MOCK_REFRESH_TOKEN)).thenReturn(mockJws);
         when(mockJws.getPayload()).thenReturn(mockClaims);
-        when(mockClaims.getSubject()).thenReturn("1234");
-        when(userService.getUserById(1234L)).thenReturn(Optional.empty());
+        UUID subjectUuid = UUID.randomUUID();
+        when(mockClaims.getSubject()).thenReturn(subjectUuid.toString());
+        when(userService.getUserByPublicId(subjectUuid)).thenReturn(null);
 
-        assertThrows(BadCredentialsException.class, () -> {
+        assertThrows(IllegalArgumentException.class, () -> {
             refreshTokenService.rotateRefreshToken(MOCK_REFRESH_TOKEN);
         });
     }
