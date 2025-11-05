@@ -1,9 +1,11 @@
 package com.smarthealthdog.backend.dto.diagnosis.create;
 
+import java.util.UUID;
+
 import com.smarthealthdog.backend.domain.PetSpecies;
 
 public record RequestDiagnosisData (
     String imageUrl,
-    Long submissionId,
+    UUID submissionId,
     PetSpecies species
 ) {}
