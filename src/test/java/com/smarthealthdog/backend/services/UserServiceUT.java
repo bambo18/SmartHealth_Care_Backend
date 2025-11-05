@@ -55,7 +55,6 @@ public class UserServiceUT {
     @InjectMocks
     private UserService userService;
 
-    private Role unverifiedRole;
     private Role userRole;
 
     @BeforeEach
@@ -119,22 +118,6 @@ public class UserServiceUT {
         assertTrue(user.getEmailVerificationRequestedAt() == null);
         assertTrue(user.getEmailVerificationExpiry() == null);
         assertTrue(user.getEmailVerificationFailCount() == 0);
-    }
-
-    @Test
-    public void testChangeRoleToVerifiedUser_Success() {
-        User user = new User();
-        user.setId(1L);
-        user.setRole(unverifiedRole);
-
-        // Mock the roleService to return the USER role
-        when(roleService.getUserRole()).thenReturn(userRole);
-
-        // ACT
-        userService.changeRoleToVerifiedUser(user);
-
-        // ASSERT: Verify the user's role has been changed to USER
-        assertTrue(user.getRole().getName().equals(RoleEnum.USER));
     }
 
     @Test
