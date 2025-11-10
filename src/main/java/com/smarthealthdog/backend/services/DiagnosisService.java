@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.smarthealthdog.backend.domain.Condition;
 import com.smarthealthdog.backend.domain.Diagnosis;
@@ -27,6 +28,7 @@ public class DiagnosisService {
      * @param submission 제출 정보
      * @param request 제출 결과 요청 객체
      */
+    @Transactional
     public void processInferenceResult(Submission submission, SubmissionResultRequest request) {
         Pet pet = submission.getPet();
 
@@ -60,6 +62,11 @@ public class DiagnosisService {
         if (diagnosesToSave.stream().allMatch(d -> d == null)) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_INPUT);
         }
+
+        // null이 아닌 진단만 필터링하여 저장
+        diagnosesToSave = diagnosesToSave.stream()
+            .filter(d -> d != null)
+            .collect(Collectors.toList());
 
         diagnosisRepository.saveAll(diagnosesToSave);
     }
