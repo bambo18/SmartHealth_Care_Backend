@@ -38,6 +38,14 @@ public class SubmissionService {
             throw new InvalidRequestDataException(ErrorCode.INVALID_INPUT);
         }
 
+        if (request == null) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_INPUT);
+        }
+
+        if (request.getResults() == null || request.getResults().isEmpty()) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_INPUT);
+        }
+
         // 1. 진단 결과 처리
         diagnosisService.processInferenceResult(submission, request);
 
