@@ -7,7 +7,6 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import java.time.Instant;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
@@ -49,6 +48,5 @@ public class Submission {
     private String failureReason;
 
     @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private Set<Diagnosis> diagnoses = new HashSet<>();
+    private Set<Diagnosis> diagnoses;
 }

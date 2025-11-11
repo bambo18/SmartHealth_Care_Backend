@@ -1,5 +1,6 @@
 package com.smarthealthdog.backend.domain;
 
+import java.util.HashSet;
 import java.util.Set;
 
 import jakarta.persistence.*;
@@ -40,4 +41,7 @@ public class Condition {
         inverseJoinColumns = @JoinColumn(name = "check_method_id")
     )
     private Set<ConditionCheckMethod> checkMethods;
+
+    @OneToMany(mappedBy = "condition", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<ConditionTranslation> conditionTranslations = new HashSet<>();
 }

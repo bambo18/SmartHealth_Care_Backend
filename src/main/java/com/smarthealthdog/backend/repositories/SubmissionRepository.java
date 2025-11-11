@@ -1,6 +1,7 @@
 package com.smarthealthdog.backend.repositories;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -24,4 +25,10 @@ public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
     @Transactional
     @Query("UPDATE Submission s SET s.status = :newStatus WHERE s.id IN :submissionIds")
     int updateStatusByIds(@Param("newStatus") SubmissionStatus newStatus, @Param("submissionIds") List<UUID> submissionIds);
+
+    Optional<Submission> findById(UUID id);
+
+    // Create a custom query that fetches Submission with Pet with User eagerly
+    @Query("SELECT s FROM Submission s JOIN FETCH s.pet p JOIN FETCH p.owner u WHERE s.id = :id")
+    Optional<Submission> findByIdWithPetAndUser(@Param("id") UUID id);
 }
