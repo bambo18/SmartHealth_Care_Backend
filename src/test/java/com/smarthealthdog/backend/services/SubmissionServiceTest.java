@@ -34,7 +34,9 @@ import com.smarthealthdog.backend.dto.diagnosis.update.DiagnosisResultDto;
 import com.smarthealthdog.backend.dto.diagnosis.update.SubmissionResultRequest;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.repositories.ConditionRepository;
+import com.smarthealthdog.backend.repositories.ConditionTranslationRepository;
 import com.smarthealthdog.backend.repositories.DiagnosisRepository;
+import com.smarthealthdog.backend.repositories.LanguageRepository;
 import com.smarthealthdog.backend.repositories.PermissionRepository;
 import com.smarthealthdog.backend.repositories.PetRepository;
 import com.smarthealthdog.backend.repositories.RoleRepository;
@@ -58,7 +60,13 @@ public class SubmissionServiceTest {
     private ConditionRepository conditionRepository;
 
     @Autowired
+    private ConditionTranslationRepository conditionTranslationRepository;
+
+    @Autowired
     private DiagnosisRepository diagnosisRepository;
+
+    @Autowired
+    private LanguageRepository languageRepository;
 
     @Autowired
     private PermissionRepository permissionRepository;
@@ -120,17 +128,13 @@ public class SubmissionServiceTest {
         // 반려동물 확인
         assertTrue(pet != null);
 
-        // 제출 생성
-        // Submission submission = submissionService.createSubmission(pet);
-        // submissionService.saveSubmission(submission);
-
-        // Submission savedSubmission = submissionRepository.findFirst100ByStatusOrderBySubmittedAtAsc(SubmissionStatus.PENDING).stream().findFirst().orElse(null);
-        // assertTrue(savedSubmission != null);
-
         Condition condition = new Condition();
         condition.setName("Test Disease");
         condition.setSpecies(PetSpecies.DOG);
         conditionRepository.save(condition);
+
+        condition = conditionRepository.findByName("Test Disease").orElse(null);
+        assertTrue(condition != null);
     }
 
     @BeforeEach
@@ -142,6 +146,8 @@ public class SubmissionServiceTest {
     @AfterAll
     void cleanup() {
         diagnosisRepository.deleteAll();
+        conditionTranslationRepository.deleteAll();
+        languageRepository.deleteAll();
         conditionRepository.deleteAll();
         submissionRepository.deleteAll();
         petRepository.deleteAll();
