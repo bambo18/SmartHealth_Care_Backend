@@ -2,6 +2,7 @@ package com.smarthealthdog.backend.validation;
 
 public enum ErrorCode {
     LOGIN_FAILURE("로그인에 실패했습니다. 아이디와 비밀번호를 확인해주세요."),
+    SOCIAL_LOGIN_FAILURE("소셜 로그인에 실패했습니다. 다시 시도해주세요."),
     INVALID_INPUT("잘못된 입력입니다."),
     RESOURCE_NOT_FOUND("요청한 리소스를 찾을 수 없습니다."),
     INTERNAL_SERVER_ERROR("서버에서 예기치 않은 오류가 발생했습니다."),

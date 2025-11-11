@@ -67,7 +67,8 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
-                    "/api/auth/**"
+                    "/api/auth/**",
+                    "/uploads/**" // for serving static files during development
                 ).permitAll()
                 .anyRequest().authenticated() 
             );

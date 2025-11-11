@@ -142,7 +142,7 @@ public class CustomUserDetailsServiceTest {
     @Transactional
     void loadUserByUsername_ShouldReturnUserDetails_WhenUserExists() {
         User user = userRepository.findByEmail("test@test.com").orElseThrow();
-        UserDetails sameUser1 = customUserDetailsService.loadUserByUsername(user.getId().toString());
+        UserDetails sameUser1 = customUserDetailsService.loadUserByUsername(user.getPublicId().toString());
 
         assertTrue(sameUser1.getUsername().equals(user.getId().toString()));
 

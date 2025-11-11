@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.github.f4b6a3.uuid.UuidCreator;
 import com.smarthealthdog.backend.domain.RefreshToken;
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
@@ -35,6 +36,7 @@ class RefreshTokenRepositoryTest {
         roleRepository.save(role);
 
         testUser = new User();
+        testUser.setPublicId(UuidCreator.getTimeOrderedEpoch());
         testUser.setNickname("testuser");
         testUser.setEmail("testuser@example.com");
         testUser.setPassword("hashedpassword");

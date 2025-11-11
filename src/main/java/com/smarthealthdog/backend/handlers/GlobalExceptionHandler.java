@@ -53,6 +53,13 @@ public class GlobalExceptionHandler {
     )
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErrorMessage handleJwtExceptions(Exception e) {
+        if (e instanceof com.smarthealthdog.backend.exceptions.BadCredentialsException) {
+            return new ErrorMessage(
+                List.of(((com.smarthealthdog.backend.exceptions.BadCredentialsException) e).getErrorCode().name()),
+                List.of(((com.smarthealthdog.backend.exceptions.BadCredentialsException) e).getErrorCode().getMessage())
+            );
+        }
+
         return new ErrorMessage(
             List.of(ErrorCode.INVALID_JWT.name()),
             List.of(ErrorCode.INVALID_JWT.getMessage())

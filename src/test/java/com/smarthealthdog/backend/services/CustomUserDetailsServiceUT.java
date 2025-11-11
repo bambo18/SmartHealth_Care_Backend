@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,20 +36,23 @@ public class CustomUserDetailsServiceUT {
 
     @Test
     void loadUserByUsername_ShouldThrowException_WhenUserIdNotFound() {
-        when(userRepository.findUserWithRoleAndPermissionsById(9999L)).thenReturn(Optional.empty());
+        UUID nonExistentPublicId = UUID.randomUUID();
+        when(userRepository.findUserWithRoleAndPermissionsByPublicId(nonExistentPublicId)).thenReturn(Optional.empty());
         assertThrows(BadCredentialsException.class, () -> {
-            customUserDetailsService.loadUserByUsername("9999");
+            customUserDetailsService.loadUserByUsername(nonExistentPublicId.toString());
         });
     }
 
     @Test
     void loadUserByUsername_ShouldThrowException_WhenUserHasNoRole() {
         User mockUser = mock(User.class);
-        when(userRepository.findUserWithRoleAndPermissionsById(1L)).thenReturn(Optional.of(mockUser));
+
+        UUID publicId = UUID.randomUUID();
+        when(userRepository.findUserWithRoleAndPermissionsByPublicId(publicId)).thenReturn(Optional.of(mockUser));
         when(mockUser.getRole()).thenReturn(null);
 
         assertThrows(BadCredentialsException.class, () -> {
-            customUserDetailsService.loadUserByUsername("1");
+            customUserDetailsService.loadUserByUsername(publicId.toString());
         });
     }
 
@@ -57,13 +61,14 @@ public class CustomUserDetailsServiceUT {
         User mockUser = mock(User.class);
         Role mockRole = mock(Role.class);
         
-        when(userRepository.findUserWithRoleAndPermissionsById(1L)).thenReturn(Optional.of(mockUser));
+        UUID publicId = UUID.randomUUID();
+        when(userRepository.findUserWithRoleAndPermissionsByPublicId(publicId)).thenReturn(Optional.of(mockUser));
         when(mockUser.getRole()).thenReturn(mockRole);
         when(mockRole.getPermissions()).thenReturn(null);
 
         when(mockUser.getId()).thenReturn(1L);
         when(mockUser.getPassword()).thenReturn("hashedpassword");
 
-        customUserDetailsService.loadUserByUsername("1");
+        customUserDetailsService.loadUserByUsername(publicId.toString());
     }
 }

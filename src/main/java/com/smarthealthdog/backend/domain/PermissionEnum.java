@@ -51,7 +51,10 @@ public enum PermissionEnum {
     CAN_MANAGE_ALL_WALK_RECORDS("can_manage_all_walk_records", "모든 산책 기록 관리"),
     CAN_MANAGE_ALL_HEALTH_RECORDS("can_manage_all_health_records", "모든 건강 기록 관리"),
     CAN_ACCESS_SYSTEM_METRICS("can_access_system_metrics", "시스템 지표 접근"),
-    CAN_ASSIGN_ROLES("can_assign_roles", "역할 할당");
+    CAN_ASSIGN_ROLES("can_assign_roles", "역할 할당"),
+
+    // --- AI Model Service Permissions ---
+    CAN_UPDATE_HEALTH_RECORDS("can_update_health_records", "반려동물 건강 기록 업데이트");
 
     private final String name;
     private final String description;

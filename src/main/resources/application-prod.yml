@@ -20,6 +20,11 @@ spring:
     user: postgres
     password: ${DB_PASSWORD}
     baseline-on-migrate: true
+    placeholders:
+      ai:
+        user:
+          email: ${AI_MODEL_SERVICE_EMAIL}
+          password-hash: ${AI_MODEL_SERVICE_PASSWORD_HASH}
   mail:
     host: ${SMTP_HOST}
     username: ${SMTP_USER}
@@ -34,6 +39,27 @@ spring:
           starttls:
             enable: true
             required: true
+  quartz:
+    auto-startup: false
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never
+    properties:
+      org.quartz.jobStore.class: org.springframework.scheduling.quartz.LocalDataSourceJobStore
+      org.quartz.jobStore.driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+      org.quartz.jobStore.isClustered: true
+      org.quartz.jobStore.clusterCheckinInterval: 10000
+      org.quartz.scheduler.instanceId: AUTO
+      org.quartz.scheduler.instanceName: ClusteredQuartzScheduler
+      org.quartz.threadPool.threadCount: 5
+  security:
+    oauth2:
+      client:
+        provider:
+          google:
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+          kakao:
+            user-info-uri: https://kapi.kakao.com/v2/user/me
 
 jwt:
   secret: ${JWT_SECRET}

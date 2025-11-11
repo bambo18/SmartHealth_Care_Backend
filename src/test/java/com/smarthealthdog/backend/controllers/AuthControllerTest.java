@@ -53,8 +53,9 @@ import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.services.EmailService;
 import com.smarthealthdog.backend.services.EmailVerificationService;
 import com.smarthealthdog.backend.services.UserService;
+import com.smarthealthdog.backend.utils.ImageUploader;
+import com.smarthealthdog.backend.utils.ImgUtils;
 import com.smarthealthdog.backend.utils.JWTUtils;
-import com.smarthealthdog.backend.utils.S3Uploader;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -95,11 +96,14 @@ public class AuthControllerTest {
     @Autowired
     private EmailVerificationService emailVerificationService;
 
+    @Autowired
+    private ImgUtils imgUtils;
+
     @MockitoBean
     private EmailService emailService;
 
     @MockitoBean
-    private S3Uploader s3Uploader;
+    private ImageUploader imageUploader;
 
     SecretKey key;
 
@@ -133,12 +137,6 @@ public class AuthControllerTest {
         roleRepository.save(userRole);
 
         roleRepository.flush();
-
-        ReflectionTestUtils.setField(
-            userService,
-            "cloudFrontUrl",
-            "https://dummy-cloudfront-url.com"
-        );
 
         // Initialize JWTUtils
         // generate a 64 hex character secret key for HS256
@@ -183,6 +181,18 @@ public class AuthControllerTest {
             emailVerificationService,
             "emailVerificationSecret",
             "test-email-verification-secret"
+        );
+
+        ReflectionTestUtils.setField(
+            imgUtils,
+            "localStorageUrlPrefix",
+            "http://localhost:8080/images/"
+        );
+
+        ReflectionTestUtils.setField(
+            imgUtils,
+            "aiModelServiceUrlPrefix",
+            "http://localhost:9090/ai/images/"
         );
     }
 

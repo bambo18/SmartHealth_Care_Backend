@@ -12,7 +12,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "language")
+@Table(name = "languages")
 public class Language {
 
     @Id
@@ -20,9 +20,12 @@ public class Language {
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @Column(name = "name", length = 128)
+    @Column(name = "name", length = 255, nullable = false, unique = true)
     private String name;
 
-    @Column(name = "code", length = 10, unique = true)
+    @Column(name = "native_name", length = 255, nullable = false)
+    private String nativeName;
+
+    @Column(name = "code", length = 128, unique = true)
     private String code;
 }
