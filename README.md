@@ -141,7 +141,7 @@ export AI_MODEL_SERVICE_SECRET=[AI 서비스 시크릿 키] # https://jwtsecrets
 [System.Environment]::SetEnvironmentVariable('AI_MODEL_SERVICE_SECRET', '[AI 서비스 시크릿 키]', 'User') # https://jwtsecrets.com/#generator 에서 256 비트로 설정 후 생성
 ```
 
-## 빌드 및 실행
+## 빌드 및 서버 실행
 
 프로젝트에서 사용하는 자바 버전은 24입니다. 자바 24가 설치되어 있는지 확인하세요. 설치되어 있지 않다면, [링크](https://www.oracle.com/java/technologies/javase/jdk24-archive-downloads.html)에서 설치할 수 있습니다. 본인의 OS에 맞는 버전을 다운로드하여 설치합니다.
 
