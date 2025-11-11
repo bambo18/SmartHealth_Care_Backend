@@ -1,6 +1,7 @@
 package com.smarthealthdog.backend.services;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -22,6 +23,15 @@ import lombok.RequiredArgsConstructor;
 public class DiagnosisService {
     private final ConditionService conditionService;
     private final DiagnosisRepository diagnosisRepository;
+
+    /**
+     * 특정 제출 ID에 대한 모든 진단 결과를 조회합니다.
+     * @param submissionId 제출 ID
+     * @return 해당 제출에 대한 진단 결과 목록
+     */
+    public List<Diagnosis> getDiagnosesBySubmissionId(UUID submissionId) {
+        return diagnosisRepository.findBySubmissionIdWithCondition(submissionId);
+    }
 
     /**
      * 제출된 진단 결과를 처리하고 데이터베이스에 저장합니다.

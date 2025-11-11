@@ -38,6 +38,12 @@ public class ConditionService {
         return conditions;
     }
 
+    /**
+     * 주어진 조건 ID 목록과 선호 언어에 해당하는 ConditionTranslation 목록을 반환합니다.
+     * @param conditionIds 조건 ID 목록
+     * @param preferredLanguage 선호 언어
+     * @return 해당 조건 ID와 언어에 대한 번역 목록
+     */
     public List<ConditionTranslation> getConditionTranslationsByConditionIdsAndLanguage(
             List<Integer> conditionIds, 
             Language preferredLanguage
