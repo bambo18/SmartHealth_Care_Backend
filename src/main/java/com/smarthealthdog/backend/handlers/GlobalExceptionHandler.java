@@ -139,6 +139,7 @@ public class GlobalExceptionHandler {
             .body(new ErrorMessage(
                 List.of(ErrorCode.INTERNAL_SERVER_ERROR.name()),
                 List.of("서버에서 예기치 않은 오류가 발생했습니다.")
+                // List.of(e.getMessage())
             ));
     }
 }

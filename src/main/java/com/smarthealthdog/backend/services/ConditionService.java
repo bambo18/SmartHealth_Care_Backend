@@ -5,8 +5,11 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.smarthealthdog.backend.domain.Condition;
+import com.smarthealthdog.backend.domain.ConditionTranslation;
+import com.smarthealthdog.backend.domain.Language;
 import com.smarthealthdog.backend.domain.PetSpecies;
 import com.smarthealthdog.backend.repositories.ConditionRepository;
+import com.smarthealthdog.backend.repositories.ConditionTranslationRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -15,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 public class ConditionService {
 
     private final ConditionRepository conditionRepository;
+    private final ConditionTranslationRepository conditionTranslationRepository;
 
     /**
      * 주어진 반려동물 종(species)에 해당하는 모든 질병(Condition) 정보를 반환합니다.
@@ -32,5 +36,12 @@ public class ConditionService {
         }
 
         return conditions;
+    }
+
+    public List<ConditionTranslation> getConditionTranslationsByConditionIdsAndLanguage(
+            List<Integer> conditionIds, 
+            Language preferredLanguage
+    ) {
+        return conditionTranslationRepository.findByConditionIdsAndLanguage(conditionIds, preferredLanguage.getId());
     }
 }
