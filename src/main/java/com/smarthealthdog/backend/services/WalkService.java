@@ -202,6 +202,7 @@ public class WalkService {
         );
     }
 
+    //이번주 전체 산책 리스트 조회 api(구현
     @Transactional(readOnly = true)
     public List<Walk> listThisWeekWalks(Long userId, String timezone) {
         ZoneId zone = ZoneId.of("UTC");
@@ -222,7 +223,6 @@ public class WalkService {
 
         // 이번 주 산책 리스트 전체 수집
         List<Walk> walks = new ArrayList<>();
-
         for (Pet pet : pets) {
             walks.addAll(walkRepository.findByPetIdAndStartTimeBetweenOrderByStartTimeAsc(
                     pet.getId(),
@@ -256,4 +256,3 @@ public class WalkService {
         return Math.round(v * 10.0) / 10.0;
     }
 }
-
