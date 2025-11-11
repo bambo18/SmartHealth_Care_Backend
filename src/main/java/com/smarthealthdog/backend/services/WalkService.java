@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -199,6 +200,38 @@ public class WalkService {
             ),
             "pets", petItems
         );
+    }
+
+    @Transactional(readOnly = true)
+    public List<Walk> listThisWeekWalks(Long userId, String timezone) {
+        ZoneId zone = ZoneId.of("UTC");
+        if (timezone != null && !timezone.isBlank()) {
+            try {
+                zone = ZoneId.of(timezone);
+            } catch (Exception e) {
+                throw new InvalidRequestDataException(ErrorCode.INVALID_TIMEZONE);
+            }
+        }
+
+        // 이번 주 시작(월요일 0시)과 종료(일요일 23:59:59) 계산
+        Instant startOfWeek = dateUtils.getStartOfWeekInstant(zone);
+        Instant endOfWeek = startOfWeek.plusSeconds(7 * 24 * 3600).minusSeconds(1);
+
+        // 사용자 소유 반려동물 전체 목록
+        List<Pet> pets = petService.listByOwner(userId);
+
+        // 이번 주 산책 리스트 전체 수집
+        List<Walk> walks = new ArrayList<>();
+
+        for (Pet pet : pets) {
+            walks.addAll(walkRepository.findByPetIdAndStartTimeBetweenOrderByStartTimeAsc(
+                    pet.getId(),
+                    startOfWeek.atOffset(ZoneOffset.UTC),
+                    endOfWeek.atOffset(ZoneOffset.UTC)
+            ));
+        }
+
+        return walks;
     }
 
     // === helpers ===
