@@ -57,4 +57,17 @@ public class Walk {
         }
         return null;
     }
+
+    public void end(Instant endTime) {
+        if (endTime == null) {
+            return;
+        }
+
+        this.endTime = endTime;
+
+        // durationSeconds는 startTime과 endTime 차이로 계산됨
+        // 현재 durationSeconds 필드가 없기 때문에
+        // getDurationSeconds()로 계산해서 사용
+    }
+        
 }
