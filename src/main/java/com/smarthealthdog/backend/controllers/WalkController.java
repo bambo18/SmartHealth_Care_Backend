@@ -5,17 +5,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.smarthealthdog.backend.domain.Walk;
 import com.smarthealthdog.backend.dto.walk.CreateWalkRequest;
+import com.smarthealthdog.backend.dto.walk.WalkResponse;
 import com.smarthealthdog.backend.services.WalkService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/pets/{petId}/walks")
@@ -23,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 public class WalkController {
     private final WalkService walkService;
 
+    /* 산책 시작 */
     @PostMapping
     @PreAuthorize("hasAuthority('can_start_walk')")
     public ResponseEntity<Void> start(
@@ -34,6 +40,24 @@ public class WalkController {
         walkService.create(petId, userId, req);
         return ResponseEntity.status(HttpStatus.CREATED).body(null);
     }
+
+    /*산책 종료*/
+    @PatchMapping("/{walkId}/end")
+    @PreAuthorize("hasAuthority('can_end_walk')")
+    public ResponseEntity<Map<String, Object>> end(
+            @PathVariable Long petId,
+            @PathVariable Long walkId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        Long userId = Long.parseLong(userDetails.getUsername());
+
+        Walk walk = walkService.end(petId, walkId, userId);
+
+        return ResponseEntity.ok(Map.of(
+                "walk", WalkResponse.toDetailSnake(walk)
+        ));
+    }
+
 
     /** 특정 반려동물 산책 목록 조회 */
     /** TODO: 
