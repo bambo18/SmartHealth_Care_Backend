@@ -117,6 +117,37 @@ public class WalkService {
         walkRepository.deleteById(walkId);
     }
 
+    // 산책 종료
+    @Transactional
+    public Walk end(Long petId, Long walkId, Long userId) {
+
+        // 1) 산책 기록 조회 (없으면 404)
+        Walk walk = walkRepository.findById(walkId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.WALK_NOT_FOUND));
+
+        // 2) petId 일치 여부 확인 (URL의 petId랑 실제 walk의 petId가 같은지)
+        if (!walk.getPet().getId().equals(petId)) {
+            throw new ResourceNotFoundException(ErrorCode.WALK_NOT_FOUND);
+        }
+
+        // 3) 소유권 검증 (내 반려동물 산책만 종료 가능)
+        if (!walk.getPet().getOwner().getId().equals(userId)) {
+            // 소유자가 아니면 동일하게 404 처리 (정보 숨김)
+            throw new ResourceNotFoundException(ErrorCode.WALK_NOT_FOUND);
+        }
+
+        // 4) 이미 종료된 산책이면 그대로 반환
+        if (walk.getEndTime() != null) {
+            return walk;
+        }
+
+        // 5) 산책 종료 처리 (엔티티의 end(...) 메서드가 endTime, durationSeconds 계산)
+        walk.end(Instant.now());
+
+        // 6) 저장 후 반환
+        return walkRepository.save(walk);
+    }
+
     @Transactional(readOnly = true)
     public Map<String, Object> weeklyComparison(
             Long userId, String timezone) {
