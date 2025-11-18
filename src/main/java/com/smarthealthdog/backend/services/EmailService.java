@@ -1,13 +1,11 @@
 package com.smarthealthdog.backend.services;
 
-import com.smarthealthdog.backend.domain.EmailVerification;
+import com.smarthealthdog.backend.dto.auth.EmailVerificationCodeSentEvent;
 
 public interface EmailService {
     /**
      * 이메일 인증 메일 발송 (비동기)
-     * @param email
-     * @param token
-     * @param emailVerification
+     * @param EmailVerificationCodeSentEvent event
      */
-    void sendEmailVerification(String email, String token, EmailVerification emailVerification);
+    void sendEmailVerification(EmailVerificationCodeSentEvent event);
 }
