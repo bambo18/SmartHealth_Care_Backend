@@ -3,7 +3,6 @@ package com.smarthealthdog.backend.services;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 
 import java.time.Instant;
@@ -18,6 +17,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.smarthealthdog.backend.domain.EmailVerification;
+import com.smarthealthdog.backend.dto.auth.EmailVerificationCodeSentEvent;
 import com.smarthealthdog.backend.exceptions.ForbiddenException;
 import com.smarthealthdog.backend.repositories.EmailVerificationRepository;
 
@@ -35,13 +35,14 @@ public class EmailVerificationServiceTest {
 
     @BeforeEach
     void setUp() {
-        doNothing().when(emailService).sendEmailVerification(anyString(), anyString(), any(EmailVerification.class));
+        doNothing().when(emailService).sendEmailVerification(any(EmailVerificationCodeSentEvent.class));
         // Initialize any necessary data or configurations here
         ReflectionTestUtils.setField(emailVerificationService, "emailVerificationTriesCount", 5);
         ReflectionTestUtils.setField(emailVerificationService, "emailVerificationTriesDurationDays", 1);
         ReflectionTestUtils.setField(emailVerificationService, "emailVerificationFailureAttempts", 5);
         ReflectionTestUtils.setField(emailVerificationService, "emailVerificationLockDurationMinutes", 30);
         ReflectionTestUtils.setField(emailVerificationService, "emailVerificationSecret", "test-email-verification-secret");
+        ReflectionTestUtils.setField(emailVerificationService, "allowedEmails", "test@example.com");
         emailVerificationRepository.deleteAll();
     }
 

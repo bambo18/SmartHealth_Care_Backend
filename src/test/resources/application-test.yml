@@ -53,6 +53,7 @@ jwt:
 app:
   mail:
     from: ${SMTP_FROM}
+    allowed-emails: ${ALLOWED_EMAILS_COMMA_SEPARATED}
   token:
     email-verification:
       secret: ${EMAIL_VERIFICATION_SECRET}
@@ -90,3 +91,4 @@ cloud:
 local-storage:
   url-prefix: ${LOCAL_STORAGE_URL_PREFIX}
   ai-url-prefix: ${AI_MODEL_SERVICE_URL_PREFIX}
+  local-resource-path: ${LOCAL_RESOURCE_PATH}

@@ -69,6 +69,12 @@ public class CustomUserDetailsServiceTest {
             "test-email-verification-secret"
         );
 
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "allowedEmails",
+            "test@test.com" 
+        );
+
         Permission loginPermission = new Permission();
         loginPermission.setName(PermissionEnum.CAN_RESET_PASSWORD);
         loginPermission.setDescription("Can reset password");

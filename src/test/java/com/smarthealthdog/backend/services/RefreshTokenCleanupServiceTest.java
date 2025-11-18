@@ -109,6 +109,12 @@ public class RefreshTokenCleanupServiceTest {
             "test-email-verification-secret"
         );
 
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "allowedEmails",
+            "testuser@example.com" 
+        );
+
         Permission resetPasswordPermission = new Permission();
         resetPasswordPermission.setName(PermissionEnum.CAN_RESET_PASSWORD);
         resetPasswordPermission.setDescription("Can reset password");

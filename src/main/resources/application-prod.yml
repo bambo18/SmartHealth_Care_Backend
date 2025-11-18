@@ -107,3 +107,6 @@ cloud:
       bucket: ${AWS_S3_BUCKET}
     cloudfront:
       domain: ${AWS_CLOUDFRONT_DOMAIN}
+
+local-storage:
+  local-resource-path: ${LOCAL_RESOURCE_PATH}

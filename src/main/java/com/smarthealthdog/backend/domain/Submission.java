@@ -7,7 +7,6 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import java.time.Instant;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
@@ -27,6 +26,12 @@ public class Submission {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pet_id", nullable = false)
     private Pet pet;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", nullable = false, length = 255)
+    @Builder.Default
+    private SubmissionTypeEnum type = SubmissionTypeEnum.EYE;
 
     @NotNull
     @Column(name = "photo_url", nullable = false, columnDefinition = "TEXT")
@@ -49,6 +54,5 @@ public class Submission {
     private String failureReason;
 
     @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private Set<Diagnosis> diagnoses = new HashSet<>();
+    private Set<Diagnosis> diagnoses;
 }

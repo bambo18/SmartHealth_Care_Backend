@@ -3,11 +3,13 @@ package com.smarthealthdog.backend.services;
 import java.time.Instant;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.smarthealthdog.backend.domain.EmailVerification;
+import com.smarthealthdog.backend.dto.auth.EmailVerificationCodeSentEvent;
 import com.smarthealthdog.backend.exceptions.ForbiddenException;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.repositories.EmailVerificationRepository;
@@ -20,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Service
 public class EmailVerificationService {
-    private final EmailService emailService;
+    private final ApplicationEventPublisher eventPublisher;
     private final EmailVerificationRepository emailVerificationRepository;
     private final TokenGenerator tokenGenerator;
     private final PasswordEncoder tokenEncoder;
@@ -44,6 +46,9 @@ public class EmailVerificationService {
     @Value("${app.token.email-verification.secret}")
     private String emailVerificationSecret;
 
+    @Value("${app.mail.allowed-emails}")
+    private String allowedEmails;
+
     /**
      * 이메일 인증 토큰 생성 및 이메일 전송
      * @param email
@@ -53,11 +58,23 @@ public class EmailVerificationService {
         validateExistingEmailVerification(email);
 
         String token = tokenGenerator.generateEmailVerificationCode();
-
-        // TODO: 이메일 인증 해싱 함수 라운드 수 조정 고려
-        // 현재는 PasswordEncoder의 기본 설정 사용하고 있으나, 속도와 보안 간의 균형을 맞추기 위해 라운드 수 조정 가능
-        // 예: BCrypt는 최소 4 라운드 사용 가능
         String hashedToken = tokenEncoder.encode(token + emailVerificationSecret);
+
+        // allowedEmails 설정이 있는 경우, 해당 이메일로만 인증 메일 발송
+        // 개발 및 테스트 환경에서만 사용
+        if (allowedEmails != null && !allowedEmails.isEmpty()) {
+            String[] allowedEmailArray = allowedEmails.split(",");
+            boolean isAllowed = false;
+            for (String allowedEmail : allowedEmailArray) {
+                if (email.equalsIgnoreCase(allowedEmail.trim())) {
+                    isAllowed = true;
+                    break;
+                }
+            }
+            if (!isAllowed) {
+                return;
+            }
+        }
 
         Instant now = Instant.now();
         EmailVerification existingVerification = emailVerificationRepository.findByEmail(email).orElse(null);
@@ -72,7 +89,9 @@ public class EmailVerificationService {
                 .build();
 
             emailVerificationRepository.save(emailVerification);
-            emailService.sendEmailVerification(email, token, emailVerification);
+
+            EmailVerificationCodeSentEvent event = new EmailVerificationCodeSentEvent(email, token, emailVerification);
+            eventPublisher.publishEvent(event);
             return;
         }
 
@@ -86,7 +105,8 @@ public class EmailVerificationService {
         // 시도 횟수 1 증가
         emailVerificationRepository.incrementEmailVerificationTriesByEmail(email);
 
-        emailService.sendEmailVerification(email, token, existingVerification);
+        EmailVerificationCodeSentEvent event = new EmailVerificationCodeSentEvent(email, token, existingVerification);
+        eventPublisher.publishEvent(event);
     }
 
     /**

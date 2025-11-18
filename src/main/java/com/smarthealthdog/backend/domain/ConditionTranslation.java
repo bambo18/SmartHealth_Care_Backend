@@ -2,10 +2,12 @@ package com.smarthealthdog.backend.domain;
 
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "condition_translations")
 @IdClass(ConditionTranslationId.class)
+@Setter
 @Getter
 public class ConditionTranslation {
 
@@ -20,7 +22,6 @@ public class ConditionTranslation {
     @Column(name = "translated_name", nullable = false, length = 255)
     private String translatedName;
 
-    @Lob // Used for large text fields like TEXT in SQL
     @Column(name = "translated_description", nullable = false, columnDefinition = "TEXT")
     private String translatedDescription;
 

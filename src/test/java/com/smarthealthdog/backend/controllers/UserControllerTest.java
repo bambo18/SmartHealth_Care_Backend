@@ -173,6 +173,13 @@ public class UserControllerTest {
         );
 
         ReflectionTestUtils.setField(
+            emailVerificationService,
+            "allowedEmails",
+            "validuser@example.com," +
+            "invaliduser@example.com" 
+        );
+
+        ReflectionTestUtils.setField(
             imgUtils,
             "localStorageUrlPrefix",
             "http://localhost:8080/images/"

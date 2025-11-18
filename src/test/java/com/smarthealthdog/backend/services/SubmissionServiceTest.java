@@ -16,6 +16,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.smarthealthdog.backend.domain.Condition;
@@ -28,13 +29,18 @@ import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.Submission;
 import com.smarthealthdog.backend.domain.SubmissionStatus;
+import com.smarthealthdog.backend.domain.SubmissionTypeEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.CreatePetRequest;
+import com.smarthealthdog.backend.dto.diagnosis.get.SubmissionPage;
 import com.smarthealthdog.backend.dto.diagnosis.update.DiagnosisResultDto;
 import com.smarthealthdog.backend.dto.diagnosis.update.SubmissionResultRequest;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
+import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.repositories.ConditionRepository;
+import com.smarthealthdog.backend.repositories.ConditionTranslationRepository;
 import com.smarthealthdog.backend.repositories.DiagnosisRepository;
+import com.smarthealthdog.backend.repositories.LanguageRepository;
 import com.smarthealthdog.backend.repositories.PermissionRepository;
 import com.smarthealthdog.backend.repositories.PetRepository;
 import com.smarthealthdog.backend.repositories.RoleRepository;
@@ -58,7 +64,13 @@ public class SubmissionServiceTest {
     private ConditionRepository conditionRepository;
 
     @Autowired
+    private ConditionTranslationRepository conditionTranslationRepository;
+
+    @Autowired
     private DiagnosisRepository diagnosisRepository;
+
+    @Autowired
+    private LanguageRepository languageRepository;
 
     @Autowired
     private PermissionRepository permissionRepository;
@@ -120,17 +132,13 @@ public class SubmissionServiceTest {
         // 반려동물 확인
         assertTrue(pet != null);
 
-        // 제출 생성
-        // Submission submission = submissionService.createSubmission(pet);
-        // submissionService.saveSubmission(submission);
-
-        // Submission savedSubmission = submissionRepository.findFirst100ByStatusOrderBySubmittedAtAsc(SubmissionStatus.PENDING).stream().findFirst().orElse(null);
-        // assertTrue(savedSubmission != null);
-
         Condition condition = new Condition();
         condition.setName("Test Disease");
         condition.setSpecies(PetSpecies.DOG);
         conditionRepository.save(condition);
+
+        condition = conditionRepository.findByName("Test Disease").orElse(null);
+        assertTrue(condition != null);
     }
 
     @BeforeEach
@@ -142,6 +150,8 @@ public class SubmissionServiceTest {
     @AfterAll
     void cleanup() {
         diagnosisRepository.deleteAll();
+        conditionTranslationRepository.deleteAll();
+        languageRepository.deleteAll();
         conditionRepository.deleteAll();
         submissionRepository.deleteAll();
         petRepository.deleteAll();
@@ -158,7 +168,7 @@ public class SubmissionServiceTest {
         Pet pet = petService.listByOwner(user.getId()).stream().findFirst().orElse(null);
         assertTrue(pet != null);
 
-        Submission submission = submissionService.createSubmission(pet);
+        Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
         submission.setStatus(SubmissionStatus.COMPLETED);
         submissionService.saveSubmission(submission);
 
@@ -175,7 +185,7 @@ public class SubmissionServiceTest {
         Pet pet = petService.listByOwner(user.getId()).stream().findFirst().orElse(null);
         assertTrue(pet != null);
 
-        Submission submission = submissionService.createSubmission(pet);
+        Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
         submission.setStatus(SubmissionStatus.PROCESSING);
         submissionService.saveSubmission(submission);
 
@@ -192,7 +202,7 @@ public class SubmissionServiceTest {
         Pet pet = petService.listByOwner(user.getId()).stream().findFirst().orElse(null);
         assertTrue(pet != null);
 
-        Submission submission = submissionService.createSubmission(pet);
+        Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
         submission.setStatus(SubmissionStatus.PROCESSING);
         submissionService.saveSubmission(submission);
 
@@ -209,7 +219,7 @@ public class SubmissionServiceTest {
         Pet pet = petService.listByOwner(user.getId()).stream().findFirst().orElse(null);
         assertTrue(pet != null);
 
-        Submission submission = submissionService.createSubmission(pet);
+        Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
         submission.setStatus(SubmissionStatus.PROCESSING);
         submissionService.saveSubmission(submission);
 
@@ -229,7 +239,7 @@ public class SubmissionServiceTest {
         Pet pet = petService.listByOwner(user.getId()).stream().findFirst().orElse(null);
         assertTrue(pet != null);
 
-        Submission submission = submissionService.createSubmission(pet);
+        Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
         submission.setStatus(SubmissionStatus.PROCESSING);
         submissionService.saveSubmission(submission);
 
@@ -249,7 +259,7 @@ public class SubmissionServiceTest {
         Pet pet = petService.listByOwner(user.getId()).stream().findFirst().orElse(null);
         assertTrue(pet != null);
 
-        Submission submission = submissionService.createSubmission(pet);
+        Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
         submission.setStatus(SubmissionStatus.PROCESSING);
         submissionService.saveSubmission(submission);
 
@@ -267,6 +277,40 @@ public class SubmissionServiceTest {
     }
 
     @Test
+    void deleteSubmissionById_ShouldThrowResourceNotFoundException_WhenSubmissionAlreadyDeleted() {
+        User user = userRepository.findByEmail("email@email.com").orElse(null);
+        assertTrue(user != null);
+
+        Pet pet = petService.listByOwner(user.getId()).stream().findFirst().orElse(null);
+        assertTrue(pet != null);
+
+        Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
+        submission.setStatus(SubmissionStatus.DELETED);
+        submissionService.saveSubmission(submission);
+
+        assertThrows(ResourceNotFoundException.class, () -> {
+            submissionService.deleteSubmissionById(submission.getId(), user.getId());
+        });
+    }
+
+    @Test
+    void deleteSubmissionById_ShouldUpdateStatusToDeleted() {
+        User user = userRepository.findByEmail("email@email.com").orElse(null);
+        assertTrue(user != null);
+
+        Pet pet = petService.listByOwner(user.getId()).stream().findFirst().orElse(null);
+        assertTrue(pet != null);
+
+        Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
+        submission.setStatus(SubmissionStatus.COMPLETED);
+        submissionService.saveSubmission(submission);
+
+        submissionService.deleteSubmissionById(submission.getId(), user.getId());
+        Submission deletedSubmission = submissionService.getSubmissionById(submission.getId());
+        assertTrue(deletedSubmission.getStatus() == SubmissionStatus.DELETED);
+    }
+
+    @Test
     void failSubmission_ShouldThrowInvalidRequestDataException_WhenSubmissionStatusIsNotProcessing() {
         User user = userRepository.findByEmail("email@email.com").orElse(null);
         assertTrue(user != null);
@@ -274,7 +318,7 @@ public class SubmissionServiceTest {
         Pet pet = petService.listByOwner(user.getId()).stream().findFirst().orElse(null);
         assertTrue(pet != null);
 
-        Submission submission = submissionService.createSubmission(pet);
+        Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
         submission.setStatus(SubmissionStatus.COMPLETED);
         submissionService.saveSubmission(submission);
         String failureReason = "Inference service timeout";
@@ -291,7 +335,7 @@ public class SubmissionServiceTest {
         Pet pet = petService.listByOwner(user.getId()).stream().findFirst().orElse(null);
         assertTrue(pet != null);
 
-        Submission submission = submissionService.createSubmission(pet);
+        Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
         submission.setStatus(SubmissionStatus.PROCESSING);
         submissionService.saveSubmission(submission);
         String failureReason = "Inference service timeout";
@@ -299,5 +343,75 @@ public class SubmissionServiceTest {
         assertTrue(failedSubmission.getStatus() == SubmissionStatus.FAILED);
         assertTrue(failedSubmission.getFailureReason().equals(failureReason));
         assertTrue(failedSubmission.getCompletedAt() != null);
+    }
+
+    @Test
+    void getSubmissionsByPetId_ShouldThrowResourceNotFoundException_WhenNoSubmissionsExist() {
+        User user = userRepository.findByEmail("email@email.com").orElse(null);
+        assertTrue(user != null);
+
+        Pet pet = petService.listByOwner(user.getId()).stream().findFirst().orElse(null);
+        assertTrue(pet != null);
+
+        Pageable pageable = Pageable.ofSize(10);
+
+        assertThrows(ResourceNotFoundException.class, () -> {
+            submissionService.getSubmissionsByPetId(
+                pet.getId(), user.getId(), null, null, null, null, pageable);
+        });
+    }
+
+    @Test
+    void getSubmissionsByPetId_ShouldReturnSubmissions_WhenTheyExist() {
+        User user = userRepository.findByEmail("email@email.com").orElse(null);
+        assertTrue(user != null);
+
+        Pet pet = petService.listByOwner(user.getId()).stream().findFirst().orElse(null);
+        assertTrue(pet != null);
+
+        Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
+        submission.setStatus(SubmissionStatus.COMPLETED);
+        submissionService.saveSubmission(submission);
+
+        Pageable pageable = Pageable.ofSize(10);
+        SubmissionPage page = submissionService.getSubmissionsByPetId(
+            pet.getId(), user.getId(), null, null, null, null, pageable);
+        assertTrue(page.getTotalElements() == 1);
+
+        // Create another submission for the same pet
+        Submission anotherSubmission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
+        anotherSubmission.setStatus(SubmissionStatus.PROCESSING);
+        submissionService.saveSubmission(anotherSubmission);
+
+        page = submissionService.getSubmissionsByPetId(
+            pet.getId(), user.getId(), null, null, null, null, pageable);
+        assertTrue(page.getTotalElements() == 2);
+    }
+
+    @Test
+    void getSubmissionsByUserId_ShouldReturnSubmissions_WhenTheyExist() {
+        User user = userRepository.findByEmail("email@email.com").orElse(null);
+        assertTrue(user != null);
+
+        Pet pet = petService.listByOwner(user.getId()).stream().findFirst().orElse(null);
+        assertTrue(pet != null);
+
+        Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
+        submission.setStatus(SubmissionStatus.COMPLETED);
+        submissionService.saveSubmission(submission);
+
+        Pageable pageable = Pageable.ofSize(10);
+        SubmissionPage page = submissionService.getSubmissionsByUserId(
+            user.getId(), null, null, null, null, pageable);
+        assertTrue(page.getTotalElements() == 1);
+
+        // Create another submission for the same pet
+        Submission anotherSubmission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
+        anotherSubmission.setStatus(SubmissionStatus.PROCESSING);
+        submissionService.saveSubmission(anotherSubmission);
+
+        page = submissionService.getSubmissionsByUserId(
+            user.getId(), null, null, null, null, pageable);
+        assertTrue(page.getTotalElements() == 2);
     }
 }

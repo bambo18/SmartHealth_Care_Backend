@@ -3,15 +3,21 @@ package com.smarthealthdog.backend.handlers;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.MethodParameter;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.InternalAuthenticationServiceException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com.smarthealthdog.backend.dto.ErrorMessage;
 import com.smarthealthdog.backend.exceptions.ForbiddenException;
@@ -46,23 +52,32 @@ public class GlobalExceptionHandler {
         value = {
             MalformedJwtException.class,
             ExpiredJwtException.class,
-            UnsupportedJwtException.class,
-            BadCredentialsException.class,
-            com.smarthealthdog.backend.exceptions.BadCredentialsException.class
+            UnsupportedJwtException.class
         }
     )
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErrorMessage handleJwtExceptions(Exception e) {
-        if (e instanceof com.smarthealthdog.backend.exceptions.BadCredentialsException) {
-            return new ErrorMessage(
-                List.of(((com.smarthealthdog.backend.exceptions.BadCredentialsException) e).getErrorCode().name()),
-                List.of(((com.smarthealthdog.backend.exceptions.BadCredentialsException) e).getErrorCode().getMessage())
-            );
-        }
-
         return new ErrorMessage(
             List.of(ErrorCode.INVALID_JWT.name()),
             List.of(ErrorCode.INVALID_JWT.getMessage())
+        );
+    }
+
+    @ExceptionHandler(com.smarthealthdog.backend.exceptions.BadCredentialsException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorMessage handleCustomBadCredentialsException(com.smarthealthdog.backend.exceptions.BadCredentialsException e) {
+        return new ErrorMessage(
+            List.of(e.getErrorCode().name()),
+            List.of(e.getErrorCode().getMessage())
+        );
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorMessage handleBadCredentialsException(BadCredentialsException e) {
+        return new ErrorMessage(
+            List.of(ErrorCode.LOGIN_FAILURE.name()),
+            List.of(ErrorCode.LOGIN_FAILURE.getMessage())
         );
     }
 
@@ -73,6 +88,18 @@ public class GlobalExceptionHandler {
         ErrorMessage errorResponseBody = new ErrorMessage(
             List.of(e.getErrorCode().name()),
             List.of(e.getErrorCode().getMessage())
+        );
+        return ResponseEntity
+            .status(HttpStatus.NOT_FOUND)
+            .body(errorResponseBody);
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ResponseEntity<ErrorMessage> handleNoResourceFoundException(org.springframework.web.servlet.resource.NoResourceFoundException e) {
+        ErrorMessage errorResponseBody = new ErrorMessage(
+            List.of(ErrorCode.RESOURCE_NOT_FOUND.name()),
+            List.of(ErrorCode.RESOURCE_NOT_FOUND.getMessage())
         );
         return ResponseEntity
             .status(HttpStatus.NOT_FOUND)
@@ -102,7 +129,6 @@ public class GlobalExceptionHandler {
             ));
     }
 
-    // 400 에러 처리
     @ExceptionHandler(InvalidRequestDataException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ResponseEntity<ErrorMessage> handleInvalidRequestDataException(InvalidRequestDataException e) {
@@ -110,6 +136,50 @@ public class GlobalExceptionHandler {
             List.of(e.getErrorCode().name()),
             List.of(e.getErrorCode().getMessage())
         );
+
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(errorResponseBody);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ErrorMessage> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
+        ErrorMessage errorResponseBody = new ErrorMessage(
+            List.of(ErrorCode.INVALID_INPUT.name()),
+            List.of(ErrorCode.INVALID_INPUT.getMessage())
+        );
+
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(errorResponseBody);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ErrorMessage> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException e) {
+        MethodParameter parameter = e.getParameter();
+
+        boolean isPathVariable = parameter.getParameterAnnotation(PathVariable.class) != null;
+        boolean isRequestParam = parameter.getParameterAnnotation(RequestParam.class) != null;
+
+        ErrorMessage errorResponseBody;
+        if (isPathVariable) {
+            errorResponseBody = new ErrorMessage(
+                List.of(ErrorCode.INVALID_PATH_VARIABLE.name()),
+                List.of(ErrorCode.INVALID_PATH_VARIABLE.getMessage())
+            );
+        } else if (isRequestParam) {
+            errorResponseBody = new ErrorMessage(
+                List.of(ErrorCode.INVALID_PARAMETER_TYPE.name()),
+                List.of(ErrorCode.INVALID_PARAMETER_TYPE.getMessage())
+            );
+        } else {
+             errorResponseBody = new ErrorMessage(
+                List.of(ErrorCode.INVALID_PARAMETER_TYPE.name()),
+                List.of(ErrorCode.INVALID_PARAMETER_TYPE.getMessage())
+            );
+        } 
 
         return ResponseEntity
             .status(HttpStatus.BAD_REQUEST)
@@ -130,6 +200,19 @@ public class GlobalExceptionHandler {
             .body(errorResponseBody);
     }
 
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ResponseEntity<ErrorMessage> handleAuthorizationDeniedException(AuthorizationDeniedException e) {
+        ErrorMessage errorResponseBody = new ErrorMessage(
+            List.of(ErrorCode.FORBIDDEN.name()),
+            List.of(ErrorCode.FORBIDDEN.getMessage())
+        );
+
+        return ResponseEntity
+            .status(HttpStatus.FORBIDDEN)
+            .body(errorResponseBody);
+    }
+
     // 나머지 예외 처리
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -139,6 +222,7 @@ public class GlobalExceptionHandler {
             .body(new ErrorMessage(
                 List.of(ErrorCode.INTERNAL_SERVER_ERROR.name()),
                 List.of("서버에서 예기치 않은 오류가 발생했습니다.")
+                // List.of(e.getMessage())
             ));
     }
 }

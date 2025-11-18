@@ -7,6 +7,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.smarthealthdog.backend.domain.Pet;
 import com.smarthealthdog.backend.domain.Submission;
+import com.smarthealthdog.backend.domain.SubmissionTypeEnum;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.validation.ErrorCode;
@@ -42,7 +43,7 @@ public class DevAIDiagnosisClientService implements AIDiagnosisClientService {
             throw new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND);
         }
 
-        Submission submissionBuild = submissionService.createSubmission(pet);
+        Submission submissionBuild = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
         Submission submission = submissionService.saveSubmission(submissionBuild);
 
         // 진단 이미지 업로드
