@@ -28,6 +28,12 @@ public class Submission {
     private Pet pet;
 
     @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", nullable = false, length = 255)
+    @Builder.Default
+    private SubmissionTypeEnum type = SubmissionTypeEnum.EYE;
+
+    @NotNull
     @Column(name = "photo_url", nullable = false, columnDefinition = "TEXT")
     private String photoUrl;
 
