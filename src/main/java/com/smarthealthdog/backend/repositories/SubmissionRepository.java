@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -26,9 +29,17 @@ public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
     @Query("UPDATE Submission s SET s.status = :newStatus WHERE s.id IN :submissionIds")
     int updateStatusByIds(@Param("newStatus") SubmissionStatus newStatus, @Param("submissionIds") List<UUID> submissionIds);
 
+    Page<Submission> findAll(Specification<Submission> spec, Pageable pageable);
     Optional<Submission> findById(UUID id);
 
     // Create a custom query that fetches Submission with Pet with User eagerly
     @Query("SELECT s FROM Submission s JOIN FETCH s.pet p JOIN FETCH p.owner u WHERE s.id = :id")
     Optional<Submission> findByIdWithPetAndUser(@Param("id") UUID id);
+
+    @Query("SELECT s FROM Submission s JOIN FETCH s.pet p JOIN FETCH p.owner u WHERE s.id = :id AND u.id = :userId")
+    Optional<Submission> findByIdWithPetAndUserAndOwnerId(@Param("id") UUID id, @Param("userId") Long userId);
+
+    // Check if a submission exists for a given pet and a user
+    @Query("SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END FROM Submission s JOIN s.pet p JOIN p.owner u WHERE p.id = :petId AND u.id = :ownerId")
+    boolean existsByPetIdAndPetOwnerId(Long petId, Long ownerId);
 }
