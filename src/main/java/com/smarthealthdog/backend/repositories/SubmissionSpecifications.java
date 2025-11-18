@@ -12,6 +12,15 @@ import java.util.List;
 
 public class SubmissionSpecifications {
 
+    /**
+     * 서브미션을 필터링하는 스펙 생성기. 삭제된 서브미션은 제외합니다.
+     * @param userId 소유자 ID로 필터링
+     * @param submittedFrom 제출일 시작 범위 (null 가능)
+     * @param submittedTo 제출일 종료 범위 (null 가능)
+     * @param completedFrom 완료일 시작 범위 (null 가능)
+     * @param completedTo 완료일 종료 범위 (null 가능)
+     * @return 서브미션 필터링을 위한 Specification 객체
+     */
     public static Specification<Submission> filterSubmissions(
         Long userId,
         Instant submittedFrom,
@@ -120,6 +129,16 @@ public class SubmissionSpecifications {
         };
     }
 
+    /**
+     * 서브미션을 필터링하는 스펙 생성기. 삭제된 서브미션은 제외합니다.
+     * @param userId 소유자 ID로 필터링
+     * @param petId 펫 ID로 필터링
+     * @param submittedFrom 제출일 시작 범위 (null 가능)
+     * @param submittedTo 제출일 종료 범위 (null 가능)
+     * @param completedFrom 완료일 시작 범위 (null 가능)
+     * @param completedTo 완료일 종료 범위 (null 가능)
+     * @return 서브미션 필터링을 위한 Specification 객체
+     */
     public static Specification<Submission> filterPetSubmissions(
         Long userId,
         Long petId,
