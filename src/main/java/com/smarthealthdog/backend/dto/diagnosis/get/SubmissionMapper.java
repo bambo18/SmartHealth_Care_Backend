@@ -11,6 +11,7 @@ import com.smarthealthdog.backend.domain.ConditionTranslation;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -46,6 +47,44 @@ public class SubmissionMapper {
             diagnoses.stream()
                 .map(diagnosis -> toDiagnosisResult(diagnosis, translations))
                 .collect(Collectors.toSet())
+        );
+    }
+
+    public SubmissionPage toSubmissionPage(Page<Submission> page) {
+        if (page == null) {
+            throw new IllegalArgumentException("페이지가 null일 수 없습니다.");
+        }
+
+        List<SubmissionSummary> submissionSummaries = page.getContent().stream()
+            .map(this::toSubmissionSummary)
+            .collect(Collectors.toList());
+
+        return new SubmissionPage(
+            page.getNumber() + 1L, // 페이지 번호는 0부터 시작하므로 1을 더합니다.
+            (long) page.getSize(),
+            (long) page.getTotalPages(),
+            page.getTotalElements(),
+            page.hasNext(),
+            submissionSummaries
+        );
+    }
+
+    public SubmissionSummary toSubmissionSummary(Submission submission) {
+        if (submission == null) {
+            throw new IllegalArgumentException("서브미션이 null일 수 없습니다.");
+        }
+
+        return new SubmissionSummary(
+            submission.getId().toString(),
+            new SubmissionSummaryPetInfo(
+                submission.getPet().getId(),
+                submission.getPet().getName(),
+                submission.getPet().getSpecies()
+            ),
+            submission.getStatus().name(),
+            submission.getType().name(),
+            submission.getSubmittedAt(),
+            submission.getCompletedAt()
         );
     }
 
