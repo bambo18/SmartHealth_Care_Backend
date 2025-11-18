@@ -2,22 +2,24 @@ package com.smarthealthdog.backend.validation;
 
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+
+import lombok.RequiredArgsConstructor;
 
 
 // @Valid에서 발생한 에러에 대해 적절한 ErrorCode를 반환하는 역할
 // 추후 UserCreateRequest 외에 다른 DTO가 추가되면 여기에 케이스를 추가
 @Component
+@RequiredArgsConstructor
 public class ValidErrorCodeFinder {
+    private final CreateSocialKakaoUserRequestErrorCode createSocialKakaoUserRequestErrorCode;
+    private final EmailVerificationCodeRequestErrorCode emailVerificationCodeRequestErrorCode;
+    private final LoginRequestErrorCode loginRequestErrorCode;
+    private final RefreshTokenRequestErrorCode refreshTokenRequestErrorCode;
     private final UserCreateRequestErrorCode userCreateRequestErrorCode;
-
-    @Autowired
-    public ValidErrorCodeFinder(UserCreateRequestErrorCode userCreateRequestErrorCode) {
-        this.userCreateRequestErrorCode = userCreateRequestErrorCode;
-    }
+    private final UpdateUserProfileRequestErrorCode updateUserProfileRequestErrorCode;
 
     public List<ErrorCode> findErrorCode(MethodArgumentNotValidException e) {
         if (e == null) {
@@ -33,8 +35,18 @@ public class ValidErrorCodeFinder {
         String target = bindingResult.getTarget().getClass().getSimpleName();
 
         switch (target) {
+            case "CreateSocialKakaoUserRequest":
+                return createSocialKakaoUserRequestErrorCode.getErrorCode(e);
+            case "EmailVerificationCodeRequest":
+                return emailVerificationCodeRequestErrorCode.getErrorCode(e);
+            case "LoginRequest":
+                return loginRequestErrorCode.getErrorCode(e);
+            case "RefreshTokenRequest":
+                return refreshTokenRequestErrorCode.getErrorCode(e);
             case "UserCreateRequest":
                 return userCreateRequestErrorCode.getErrorCode(e);
+            case "UpdateUserProfileRequest":
+                return updateUserProfileRequestErrorCode.getErrorCode(e);
             default:
                 return List.of(ErrorCode.INVALID_INPUT);
         }
