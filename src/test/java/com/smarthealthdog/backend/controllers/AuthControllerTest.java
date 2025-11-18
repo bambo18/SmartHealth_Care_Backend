@@ -3,7 +3,6 @@ package com.smarthealthdog.backend.controllers;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -46,6 +45,7 @@ import com.smarthealthdog.backend.dto.LoginRequest;
 import com.smarthealthdog.backend.dto.LoginResponse;
 import com.smarthealthdog.backend.dto.RefreshTokenRequest;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
+import com.smarthealthdog.backend.dto.auth.EmailVerificationCodeSentEvent;
 import com.smarthealthdog.backend.repositories.EmailVerificationRepository;
 import com.smarthealthdog.backend.repositories.RefreshTokenRepository;
 import com.smarthealthdog.backend.repositories.RoleRepository;
@@ -113,7 +113,7 @@ public class AuthControllerTest {
 
     @BeforeAll
     void setupAll() {
-        doNothing().when(emailService).sendEmailVerification(anyString(), anyString(), any(EmailVerification.class));
+        doNothing().when(emailService).sendEmailVerification(any(EmailVerificationCodeSentEvent.class));
 
         // Runs once before all tests
         Role bannedRole = new Role();
@@ -181,6 +181,18 @@ public class AuthControllerTest {
             emailVerificationService,
             "emailVerificationSecret",
             "test-email-verification-secret"
+        );
+
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "allowedEmails",
+            "test@example.com," + 
+            "testuser@example.com," + 
+            "refreshtestuser@example.com," + 
+            "logoutuser@example.com," + 
+            "validuser@example.com," + 
+            "loginuser@example.com," + 
+            "user@example.com"
         );
 
         ReflectionTestUtils.setField(

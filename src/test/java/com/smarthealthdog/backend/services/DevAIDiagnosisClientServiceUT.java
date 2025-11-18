@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.smarthealthdog.backend.domain.Pet;
+import com.smarthealthdog.backend.domain.SubmissionTypeEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 
@@ -81,7 +82,7 @@ public class DevAIDiagnosisClientServiceUT {
         devAIDiagnosisClientService.performEyeDiagnosis(null, 1L, 1L);
 
         // Verify that the submissionService was called
-        verify(submissionService).createSubmission(mockPet);
+        verify(submissionService).createSubmission(mockPet, SubmissionTypeEnum.EYE);
         verify(fileUploadService).updateDiagnosisImage(any(), any());
     }
 }

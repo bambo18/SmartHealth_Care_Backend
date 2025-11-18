@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -25,6 +26,9 @@ import com.smarthealthdog.backend.utils.TokenGenerator;
 
 @ExtendWith(MockitoExtension.class)
 public class EmailVerificationServiceUT {
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     @Mock
     private EmailVerificationRepository emailVerificationRepository;
 
@@ -48,6 +52,7 @@ public class EmailVerificationServiceUT {
         ReflectionTestUtils.setField(emailVerificationService, "emailVerificationFailureAttempts", 5);
         ReflectionTestUtils.setField(emailVerificationService, "emailVerificationLockDurationMinutes", 30);
         ReflectionTestUtils.setField(emailVerificationService, "emailVerificationSecret", "test-email-verification-secret");
+        ReflectionTestUtils.setField(emailVerificationService, "allowedEmails", "test@example.com");
     }
 
     @Test

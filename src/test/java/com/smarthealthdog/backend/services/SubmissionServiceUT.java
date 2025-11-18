@@ -15,6 +15,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 import com.smarthealthdog.backend.domain.Condition;
 import com.smarthealthdog.backend.domain.ConditionTranslation;
@@ -35,6 +39,7 @@ import com.smarthealthdog.backend.repositories.SubmissionRepository;
 
 @ExtendWith(MockitoExtension.class)
 public class SubmissionServiceUT {
+
     @InjectMocks
     private SubmissionService submissionService;
 
@@ -111,6 +116,30 @@ public class SubmissionServiceUT {
         request.setResults(List.of(new DiagnosisResultDto()));
 
         submissionService.completeDiagnosis(UUID.randomUUID(), request);
+        verify(submissionRepository).save(mockSubmission);
+    }
+
+    @Test
+    void deleteSubmissionById_ShouldThrowResourceNotFoundException_WhenSubmissionIsAlreadyDeleted() {
+        Submission mockSubmission = mock(Submission.class);
+        when(mockSubmission.getStatus()).thenReturn(SubmissionStatus.DELETED);
+        when(submissionRepository.findByIdWithPetAndUserAndOwnerId(any(UUID.class), any(Long.class)))
+            .thenReturn(Optional.of(mockSubmission));
+
+        assertThrows(ResourceNotFoundException.class, () -> {
+            submissionService.deleteSubmissionById(UUID.randomUUID(), 1L);
+        });
+    }
+
+    @Test
+    void deleteSubmissionById_ShouldProcessSuccessfully_WhenValidSubmission() {
+        Submission mockSubmission = mock(Submission.class);
+        when(mockSubmission.getStatus()).thenReturn(SubmissionStatus.PROCESSING);
+        when(submissionRepository.findByIdWithPetAndUserAndOwnerId(any(UUID.class), any(Long.class)))
+            .thenReturn(Optional.of(mockSubmission));
+        when(submissionRepository.save(any(Submission.class))).thenReturn(mockSubmission);
+
+        submissionService.deleteSubmissionById(UUID.randomUUID(), 1L);
         verify(submissionRepository).save(mockSubmission);
     }
 
@@ -249,5 +278,129 @@ public class SubmissionServiceUT {
         verify(submissionMapper).toSubmissionDetail(
             any(Submission.class), any(List.class), any(List.class)
         );
+    }
+
+    @Test
+    void getSubmissionsByPetId_ShouldThrowInvalidRequestDataException_WhenPageableIsBiggerThanMaxPageSize() {
+        Long petId = 1L;
+        Long userId = 2L; // Different user ID
+
+        Pageable mockPageable = mock(Pageable.class);
+        when(mockPageable.getPageSize()).thenReturn(16);
+
+        assertThrows(InvalidRequestDataException.class, () -> {
+            submissionService.getSubmissionsByPetId(
+                petId, 
+                userId, 
+                null,
+                null,
+                null,
+                null,
+                mockPageable
+            );
+        });
+    }
+
+    @Test
+    void getSubmissionsByPetId_ShouldThrowInvalidRequestDataException_WhenPageableHasInvalidSortProperty() {
+        Long petId = 1L;
+        Long userId = 1L;
+
+        Pageable mockPageable = mock(Pageable.class);
+        when(mockPageable.getPageSize()).thenReturn(15);
+        when(mockPageable.getSort()).thenReturn(Sort.by("invalid_property"));
+
+        assertThrows(InvalidRequestDataException.class, () -> {
+            submissionService.getSubmissionsByPetId(
+                petId, 
+                userId, 
+                null,
+                null,
+                null,
+                null,
+                mockPageable
+            );
+        });
+    }
+
+    @Test
+    void getSubmissionsByPetId_ShouldThrowResourceNotFoundException_WhenPetDoesNotBelongToUser() {
+        Long petId = 1L;
+        Long userId = 1L;
+
+        Pageable mockPageable = mock(Pageable.class);
+        when(mockPageable.getPageSize()).thenReturn(15);
+        when(mockPageable.getSort()).thenReturn(Sort.by("submittedAt"));
+
+        when(submissionRepository.existsByPetIdAndPetOwnerId(petId, userId)).thenReturn(false);
+
+        assertThrows(ResourceNotFoundException.class, () -> {
+            submissionService.getSubmissionsByPetId(
+                petId, 
+                userId, 
+                null,
+                null,
+                null,
+                null,
+                mockPageable
+            );
+        });
+    }
+
+    @Test
+    void getSubmissionsByPetId_ShouldProcessSuccessfully_WhenValidInput() {
+        Long petId = 1L;
+        Long userId = 1L;
+
+        Pageable mockPageable = mock(Pageable.class);
+        when(mockPageable.getPageSize()).thenReturn(15);
+        when(mockPageable.getSort()).thenReturn(Sort.by("submittedAt"));
+
+        when(submissionRepository.existsByPetIdAndPetOwnerId(petId, userId)).thenReturn(true);
+        Page<Submission> mockPage = mock(Page.class);
+        when(submissionRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(mockPage);
+
+        submissionService.getSubmissionsByPetId(petId, userId, null, null, null, null, mockPageable);
+        verify(submissionMapper).toSubmissionPage(any(org.springframework.data.domain.Page.class));
+    }
+
+    @Test
+    void getSubmissionsByUserId_ShouldThrowInvalidRequestDataException_WhenPageableIsBiggerThanMaxPageSize() {
+        Long userId = 2L;
+
+        Pageable mockPageable = mock(Pageable.class);
+        when(mockPageable.getPageSize()).thenReturn(16);
+
+        assertThrows(InvalidRequestDataException.class, () -> {
+            submissionService.getSubmissionsByUserId(userId, null, null, null, null, mockPageable);
+        });
+    }
+
+    @Test
+    void getSubmissionsByUserId_ShouldThrowInvalidRequestDataException_WhenPageableHasInvalidSortProperty() {
+        Long userId = 1L;
+
+        Pageable mockPageable = mock(Pageable.class);
+        when(mockPageable.getPageSize()).thenReturn(15);
+        when(mockPageable.getSort()).thenReturn(Sort.by("invalid_property"));
+
+        assertThrows(InvalidRequestDataException.class, () -> {
+            submissionService.getSubmissionsByUserId(userId, null, null, null, null, mockPageable);
+        });
+    }
+
+    @Test
+    void getSubmissionsByUserId_ShouldProcessSuccessfully_WhenValidInput() {
+        Long userId = 1L;
+
+        Pageable mockPageable = mock(Pageable.class);
+        when(mockPageable.getPageSize()).thenReturn(15);
+        when(mockPageable.getSort()).thenReturn(Sort.by("submittedAt"));
+
+        Page<Submission> mockPage = mock(Page.class);
+        when(submissionRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(mockPage);
+
+        submissionService.getSubmissionsByUserId(userId, null, null, null, null, mockPageable);
+        verify(submissionMapper).toSubmissionPage(any(org.springframework.data.domain.Page.class));
     }
 }

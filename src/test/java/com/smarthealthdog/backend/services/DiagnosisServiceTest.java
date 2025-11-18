@@ -28,6 +28,7 @@ import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.Submission;
 import com.smarthealthdog.backend.domain.SubmissionStatus;
+import com.smarthealthdog.backend.domain.SubmissionTypeEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.CreatePetRequest;
 import com.smarthealthdog.backend.dto.diagnosis.update.DiagnosisResultDto;
@@ -125,7 +126,7 @@ public class DiagnosisServiceTest {
         assertTrue(pet != null);
 
         // 제출 생성
-        Submission submission = submissionService.createSubmission(pet);
+        Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
         submissionService.saveSubmission(submission);
 
         Submission savedSubmission = submissionRepository.findFirst100ByStatusOrderBySubmittedAtAsc(SubmissionStatus.PENDING).stream().findFirst().orElse(null);

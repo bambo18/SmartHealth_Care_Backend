@@ -18,6 +18,7 @@ import com.smarthealthdog.backend.domain.EmailVerification;
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.User;
+import com.smarthealthdog.backend.dto.auth.EmailVerificationCodeSentEvent;
 import com.smarthealthdog.backend.repositories.EmailVerificationRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.utils.TokenGenerator;
@@ -78,7 +79,8 @@ class EmailServiceUT {
             .emailVerificationFailCount(0)
             .build();
 
-        emailService.sendEmailVerification(TEST_EMAIL, TEST_CODE, emailVerification);
+        EmailVerificationCodeSentEvent event = new EmailVerificationCodeSentEvent(TEST_EMAIL, TEST_CODE, emailVerification);
+        emailService.sendEmailVerification(event);
 
         // 1. VERIFY Email was sent by JavaMailSender
         // Use verify and captor to check the contents of the email message

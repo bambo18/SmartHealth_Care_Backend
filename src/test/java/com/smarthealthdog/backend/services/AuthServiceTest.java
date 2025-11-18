@@ -103,6 +103,12 @@ public class AuthServiceTest {
             "emailVerificationSecret",
             "test-email-verification-secret"
         );
+
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "allowedEmails",
+            "test@example.com" 
+        );
     }
 
     @AfterEach
