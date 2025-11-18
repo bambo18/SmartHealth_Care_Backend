@@ -52,12 +52,14 @@ docker-compose up -d
 ```bash
 export LOCAL_STORAGE_URL_PREFIX="http://localhost:8080"
 export AI_MODEL_SERVICE_URL_PREFIX="http://localhost:8080"
+export LOCAL_RESOURCE_PATH="file:uploads/"
 ```
 
 #### Windows (PowerShell)
 ```powershell
 [System.Environment]::SetEnvironmentVariable('LOCAL_STORAGE_URL_PREFIX', 'http://localhost:8080', 'User')
 [System.Environment]::SetEnvironmentVariable('AI_MODEL_SERVICE_URL_PREFIX', 'http://localhost:8080', 'User')
+[System.Environment]::SetEnvironmentVariable('LOCAL_RESOURCE_PATH', 'file:uploads/', 'User')
 ```
 
 ## AWS 클라우드 설정
@@ -93,6 +95,7 @@ export SMTP_HOST=[SMTP 서버 호스트]
 export SMTP_USER=[SMTP 사용자 이름]
 export SMTP_PASSWORD=[SMTP 비밀번호]
 export SMTP_FROM=[보내는 사람 이메일 주소]
+export ALLOWED_EMAILS_COMMA_SEPARATED=[허용된 이메일 주소들 (콤마로 구분)]
 ```
 
 ##### Windows (PowerShell)
@@ -101,6 +104,7 @@ export SMTP_FROM=[보내는 사람 이메일 주소]
 [System.Environment]::SetEnvironmentVariable('SMTP_USER', '[SMTP 사용자 이름]', 'User')
 [System.Environment]::SetEnvironmentVariable('SMTP_PASSWORD', '[SMTP 비밀번호]', 'User')
 [System.Environment]::SetEnvironmentVariable('SMTP_FROM', '[보내는 사람 이메일 주소]', 'User')
+[System.Environment]::SetEnvironmentVariable('ALLOWED_EMAILS_COMMA_SEPARATED', '[허용된 이메일 주소들 (콤마로 구분)]', 'User')
 ```
 
 ### AWS CloudFront 설정
