@@ -155,7 +155,12 @@ public class SubmissionService {
     /**
      * 진단 ID로 제출 정보와 관련된 진단 및 번역 정보를 함께 가져옵니다.
      * @param id 진단 제출 ID
+     * @param languageCode 선호 언어 코드
+     * @param userId 사용자 ID
      * @return 제출 정보 (진단 및 번역 포함)
+     * @throws IllegalArgumentException 잘못된 인수 예외
+     * @throws ResourceNotFoundException 리소스 없음 예외
+     * @throws InternalServerErrorException 내부 서버 오류 예외
      */
     public SubmissionDetail getSubmissionAndDiagnosesById(UUID id, String languageCode, Long userId) {
         if (id == null) {
@@ -212,8 +217,14 @@ public class SubmissionService {
     /**
      * 반려동물 ID로 제출 페이지를 가져옵니다.
      * @param petId 반려동물 ID
-     * @param pageNumber 페이지 번호
+     * @param userId 사용자 ID
+     * @param submittedFrom 제출일 시작 범위
+     * @param submittedTo 제출일 종료 범위
+     * @param completedFrom 완료일 시작 범위
+     * @param completedTo 완료일 종료 범위
+     * @param pageable 페이지 정보
      * @return 제출 페이지
+     * @throws InvalidRequestDataException 잘못된 요청 데이터 예외
      */
     public SubmissionPage getSubmissionsByPetId(
         Long petId, 
@@ -270,8 +281,13 @@ public class SubmissionService {
     /**
      * 사용자 ID로 제출 페이지를 가져옵니다.
      * @param userId 사용자 ID
-     * @param pageNumber 페이지 번호
+     * @param submittedFrom 제출일 시작 범위
+     * @param submittedTo 제출일 종료 범위
+     * @param completedFrom 완료일 시작 범위
+     * @param completedTo 완료일 종료 범위
+     * @param pageable 페이지 정보
      * @return 제출 페이지
+     * @throws InvalidRequestDataException 잘못된 요청 데이터 예외
      */
     public SubmissionPage getSubmissionsByUserId(
         Long userId, 
