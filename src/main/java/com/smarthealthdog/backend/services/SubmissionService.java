@@ -306,7 +306,7 @@ public class SubmissionService {
         }
 
         Page<Submission> page = submissionRepository.findAll(
-            SubmissionSpecifications.filterSubmissions(
+            SubmissionSpecifications.filterUserSubmissions(
                 userId,
                 submittedFrom,
                 submittedTo,
