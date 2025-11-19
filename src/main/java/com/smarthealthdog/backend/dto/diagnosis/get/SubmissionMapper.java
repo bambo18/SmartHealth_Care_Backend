@@ -45,6 +45,7 @@ public class SubmissionMapper {
         return new SubmissionDetail(
             submission.getId(),
             petInfo,
+            submission.getType(),
             imgUtils.getImgUrl(submission.getPhotoUrl()),
             submission.getStatus().name(),
             submission.getSubmittedAt(),
