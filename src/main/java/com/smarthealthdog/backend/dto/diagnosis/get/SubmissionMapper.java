@@ -36,9 +36,15 @@ public class SubmissionMapper {
             throw new IllegalArgumentException("번역이 null이거나 비어 있을 수 없습니다.");
         }
 
+        SubmissionSummaryPetInfo petInfo = new SubmissionSummaryPetInfo(
+            submission.getPet().getId(),
+            submission.getPet().getName(),
+            submission.getPet().getSpecies()
+        );
+
         return new SubmissionDetail(
             submission.getId(),
-            submission.getPet().getId().toString(), // Get pet ID as String
+            petInfo,
             imgUtils.getImgUrl(submission.getPhotoUrl()),
             submission.getStatus().name(),
             submission.getSubmittedAt(),
