@@ -200,6 +200,11 @@ public class WalkService {
             double vDist = nvl(v.getTotalDistanceKm());
             long vDur   = nvl(v.getTotalDurationSec());
 
+            // 💡 퍼센트 먼저 변수에 담기
+            Double walksPct    = pct(vWalks, cWalks);
+            Double distancePct = pct(vDist,  cDist);
+            Double durationPct = pct(vDur,   cDur);
+            /* 
             Map<String, Object> item = Map.of(
                 "petId", petId,
                 "name",   petNameMap.getOrDefault(petId, "unknown"),
@@ -218,6 +223,29 @@ public class WalkService {
                     "distancePct", pct(vDist,  cDist),
                     "durationPct", pct(vDur,   cDur)
                 )
+            );
+            petItems.add(item);
+            */
+            // 💡 Map.of 대신 HashMap 사용 (null 허용)
+            Map<String, Object> delta = new java.util.HashMap<>();
+            delta.put("walksPct",    walksPct);
+            delta.put("distancePct", distancePct);
+            delta.put("durationPct", durationPct);
+
+            Map<String, Object> item = Map.of(
+                "petId", petId,
+                "name",   petNameMap.getOrDefault(petId, "unknown"),
+                "currentWeekSummary", Map.of(
+                    "totalWalks",        cWalks,
+                    "totalDistanceKm",  round1(cDist),
+                    "totalDurationSec", cDur
+                ),
+                "previousWeekSummary", Map.of(
+                    "totalWalks",        vWalks,
+                    "totalDistanceKm",  round1(vDist),
+                    "totalDurationSec", vDur
+                ),
+                "delta", delta   // ← 여기에는 HashMap이 들어감
             );
             petItems.add(item);
         }
