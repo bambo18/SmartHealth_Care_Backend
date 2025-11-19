@@ -4,12 +4,15 @@ import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 
+import com.smarthealthdog.backend.domain.SubmissionTypeEnum;
+
 import lombok.Value;
 
 @Value
 public class SubmissionDetail {
     private final UUID id;
-    private final String petId; // Assuming you only need the ID, not the full Pet object
+    private final SubmissionSummaryPetInfo petInfo;
+    private final SubmissionTypeEnum type;
     private final String photoUrl;
     private final String status; // String representation of the SubmissionStatus
     private final Instant submittedAt;
