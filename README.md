@@ -129,6 +129,7 @@ export AWS_CLOUDFRONT_DOMAIN=[CloudFront 도메인 이름]
 ```bash
 export REDIS_HOST=localhost
 export REDIS_PORT=6379
+export REDIS_PASSWORD=[Redis 비밀번호] # Redis 비밀번호 (필요시 설정)
 export AI_MODEL_SERVICE_EMAIL=[아무 이메일 주소]
 export AI_MODEL_SERVICE_PASSWORD=[아무 비밀번호]
 export AI_MODEL_SERVICE_PASSWORD_HASH=[AI 서비스 비밀번호 해시] # 해시 인증 시크릿 값. https://bcrypt-generator.com/ 에서 AI_MODEL_SERVICE_PASSWORD 값을 해시하여 생성 (12 라운드 필수)
@@ -139,6 +140,7 @@ export AI_MODEL_SERVICE_SECRET=[AI 서비스 시크릿 키] # https://jwtsecrets
 ```powershell
 [System.Environment]::SetEnvironmentVariable('REDIS_HOST', 'localhost', 'User')
 [System.Environment]::SetEnvironmentVariable('REDIS_PORT', '6379', 'User')
+[System.Environment]::SetEnvironmentVariable('REDIS_PASSWORD', '[Redis 비밀번호]', 'User') # Redis 비밀번호 (필요시 설정)
 [System.Environment]::SetEnvironmentVariable('AI_MODEL_SERVICE_EMAIL', '[아무 이메일 주소]', 'User')
 [System.Environment]::SetEnvironmentVariable('AI_MODEL_SERVICE_PASSWORD', '[아무 비밀번호]', 'User')
 [System.Environment]::SetEnvironmentVariable('AI_MODEL_SERVICE_PASSWORD_HASH', '[AI 서비스 비밀번호 해시]', 'User') # 해시 인증 시크릿 값. https://bcrypt-generator.com/ 에서 AI_MODEL_SERVICE_PASSWORD 값을 해시하여 생성 (12 라운드 필수)
