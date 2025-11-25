@@ -33,8 +33,13 @@ public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
 
     // 개발 전용: 상태별로 가장 오래된 100개의 서브미션 조회
     // List<Submission> findByStatusOrderBySubmittedAtAsc(SubmissionStatus status);
-    List<Submission> findByStatusInAndFailureReasonIn(List<SubmissionStatus> status, List<SubmissionFailureReasonEnum> failureReason);
-    List<Submission> findByStatusAndSubmittedAtLessThanEqualOrderBySubmittedAtAsc(SubmissionStatus status, Instant submittedAt);
+    Page<Submission> findByStatusInAndFailureReasonIn(
+        List<SubmissionStatus> status, 
+        List<SubmissionFailureReasonEnum> failureReason,
+        Pageable pageable
+    );
+    Page<Submission> findByStatusAndSubmittedAtLessThanEqualOrderBySubmittedAtAsc(
+        SubmissionStatus status, Instant submittedAt, Pageable pageable);
     List<Submission> findFirst100ByStatusOrderBySubmittedAtAsc(SubmissionStatus status);
     List<Submission> findFirst100ByStatusAndPhotoUrlIsNotOrderBySubmittedAtAsc(SubmissionStatus status, String photoUrl);
 

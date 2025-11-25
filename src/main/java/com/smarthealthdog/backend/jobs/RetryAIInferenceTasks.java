@@ -8,6 +8,8 @@ import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,28 +37,37 @@ public class RetryAIInferenceTasks implements Job {
     @Override
     @Transactional
     public void execute(JobExecutionContext context) {
-        List<Submission> submissions = submissionRepository.findByStatusAndSubmittedAtLessThanEqualOrderBySubmittedAtAsc(
-            SubmissionStatus.PROCESSING,
-            Instant.now().minusSeconds(inferenceServiceTimeoutSeconds)
-        );
+        Integer page = 0;
+        while (true) {
+            Page<Submission> submissions = submissionRepository.findByStatusAndSubmittedAtLessThanEqualOrderBySubmittedAtAsc(
+                SubmissionStatus.PROCESSING,
+                Instant.now().minusSeconds(inferenceServiceTimeoutSeconds),
+                PageRequest.of(page, 100)
+            );
 
-        if (submissions.isEmpty()) {
-            return;
-        }
-
-        List<String> celeryTaskStrings = new ArrayList<>();
-        for (Submission submission : submissions) {
-            if (submission.getRetryCount() < maxRetryAttempts) {
-                submission.setRetryCount(submission.getRetryCount() + 1);
-                submission.setStatus(SubmissionStatus.PENDING);
-            } else {
-                submission.setStatus(SubmissionStatus.FAILED);
-                submission.setFailureReason(SubmissionFailureReasonEnum.TIMEOUT);
+            if (submissions.isEmpty()) {
+                return;
             }
-            celeryTaskStrings.add(submission.getCeleryTaskString());
-        }
 
-        submissionRepository.saveAll(submissions);
-        diagnosisTaskRequestClient.removeDiagnosisTasksInBatch(celeryTaskStrings);
+            List<String> celeryTaskStrings = new ArrayList<>();
+            for (Submission submission : submissions) {
+                if (submission.getRetryCount() < maxRetryAttempts) {
+                    submission.setRetryCount(submission.getRetryCount() + 1);
+                    submission.setStatus(SubmissionStatus.PENDING);
+                } else {
+                    submission.setStatus(SubmissionStatus.FAILED);
+                    submission.setFailureReason(SubmissionFailureReasonEnum.TIMEOUT);
+                }
+
+                if (submission.getCeleryTaskString() != null) {
+                    celeryTaskStrings.add(submission.getCeleryTaskString());
+                }
+            }
+
+            submissionRepository.saveAll(submissions);
+            diagnosisTaskRequestClient.removeDiagnosisTasksInBatch(celeryTaskStrings);
+
+            page++;
+        }
     }
 }

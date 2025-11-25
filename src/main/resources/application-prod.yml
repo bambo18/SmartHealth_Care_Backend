@@ -117,7 +117,7 @@ local-storage:
 
 inference-service:
   retry:
-    max-attempts: 3
+    max-attempts: ${INFERENCE_SERVICE_RETRY_MAX_ATTEMPTS}
   timeout:
     seconds: ${INFERENCE_SERVICE_TIMEOUT_SECONDS}
   batch:

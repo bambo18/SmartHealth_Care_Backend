@@ -5,6 +5,8 @@ import java.util.List;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,18 +32,24 @@ public class RemoveServiceFailureAIInferenceTasks implements Job {
             SubmissionFailureReasonEnum.TIMEOUT
         );
 
-        List<Submission> errorSubmissions = submissionRepository.findByStatusInAndFailureReasonIn(
-            statuses,
-            failureReasons
-        );
+        Integer page = 0;
+        while (true) {
+            Page<Submission> errorSubmissions = submissionRepository.findByStatusInAndFailureReasonIn(
+                statuses,
+                failureReasons,
+                PageRequest.of(page, 100)
+            );
 
-        if (errorSubmissions.isEmpty()) {
-            return;
+            if (errorSubmissions.isEmpty()) {
+                return;
+            }
+
+            submissionRepository.updateStatusByIds(
+                SubmissionStatus.DELETED,
+                errorSubmissions.stream().map(Submission::getId).toList()
+            );
+
+            page++;
         }
-
-        submissionRepository.updateStatusByIds(
-            SubmissionStatus.DELETED,
-            errorSubmissions.stream().map(Submission::getId).toList()
-        );
     }
 }
