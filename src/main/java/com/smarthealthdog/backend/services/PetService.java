@@ -21,7 +21,6 @@ import com.smarthealthdog.backend.dto.UpdatePetRequest;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.repositories.PetRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
-import com.smarthealthdog.backend.utils.ImageUploader;
 import com.smarthealthdog.backend.validation.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
@@ -30,7 +29,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional
 @RequiredArgsConstructor
 public class PetService {
-    private final ImageUploader imageUploader;
+    private final FileUploadService fileUploadService;
     private final UserRepository userRepository;
     private final PetRepository petRepository;
 
@@ -60,7 +59,6 @@ public class PetService {
         petRepository.save(pet);
 
         if (profileImage != null && !profileImage.isEmpty()) {
-            imageUploader.uploadPetImage(pet, profileImage);
         }
 
         return pet;
@@ -116,7 +114,7 @@ public class PetService {
         petRepository.save(p);
 
         if (profileImage != null && !profileImage.isEmpty()) {
-            imageUploader.uploadPetImage(p, profileImage);
+            fileUploadService.uploadPetImage(p, profileImage);
         }
 
         return p;
@@ -215,7 +213,7 @@ public class PetService {
         if (profileImage != null) {
             // 프로필 이미지 처리 로직 추가 (예: 파일 저장, URL 업데이트 등)
             if (!profileImage.isEmpty()) {
-                imageUploader.uploadPetImage(p, profileImage);
+                fileUploadService.uploadPetImage(p, profileImage);
             } else {
                 // 빈 파일이 전달된 경우, 기존 이미지를 삭제 처리
                 p.setProfileImage(null);

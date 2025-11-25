@@ -28,6 +28,7 @@ import com.smarthealthdog.backend.domain.PetSpecies;
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.Submission;
+import com.smarthealthdog.backend.domain.SubmissionFailureReasonEnum;
 import com.smarthealthdog.backend.domain.SubmissionStatus;
 import com.smarthealthdog.backend.domain.SubmissionTypeEnum;
 import com.smarthealthdog.backend.domain.User;
@@ -173,7 +174,7 @@ public class SubmissionServiceTest {
         submissionService.saveSubmission(submission);
 
         assertThrows(InvalidRequestDataException.class, () -> {
-            submissionService.completeDiagnosis(submission.getId(), null);
+            submissionService.completeEyeTest(submission.getId(), null);
         });
     }
 
@@ -190,7 +191,7 @@ public class SubmissionServiceTest {
         submissionService.saveSubmission(submission);
 
         assertThrows(InvalidRequestDataException.class, () -> {
-            submissionService.completeDiagnosis(submission.getId(), null);
+            submissionService.completeEyeTest(submission.getId(), null);
         });
     }
 
@@ -207,7 +208,7 @@ public class SubmissionServiceTest {
         submissionService.saveSubmission(submission);
 
         assertThrows(InvalidRequestDataException.class, () -> {
-            submissionService.completeDiagnosis(submission.getId(), new com.smarthealthdog.backend.dto.diagnosis.update.SubmissionResultRequest());
+            submissionService.completeEyeTest(submission.getId(), new com.smarthealthdog.backend.dto.diagnosis.update.SubmissionResultRequest());
         });
     }
 
@@ -227,7 +228,7 @@ public class SubmissionServiceTest {
         request.setResults(null);
 
         assertThrows(InvalidRequestDataException.class, () -> {
-            submissionService.completeDiagnosis(submission.getId(), request);
+            submissionService.completeEyeTest(submission.getId(), request);
         });
     }
 
@@ -247,7 +248,7 @@ public class SubmissionServiceTest {
         request.setResults(Collections.emptyList());
 
         assertThrows(InvalidRequestDataException.class, () -> {
-            submissionService.completeDiagnosis(submission.getId(), request);
+            submissionService.completeEyeTest(submission.getId(), request);
         });
     }
 
@@ -270,7 +271,7 @@ public class SubmissionServiceTest {
         resultDto.setModelMd5Hash("dummyhash");
         request.setResults(List.of(resultDto));
 
-        Submission updatedSubmission = submissionService.completeDiagnosis(submission.getId(), request);
+        Submission updatedSubmission = submissionService.completeEyeTest(submission.getId(), request);
         assertTrue(updatedSubmission.getStatus() == SubmissionStatus.COMPLETED);
 
         assertTrue(diagnosisRepository.count() == 1);
@@ -321,7 +322,7 @@ public class SubmissionServiceTest {
         Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
         submission.setStatus(SubmissionStatus.COMPLETED);
         submissionService.saveSubmission(submission);
-        String failureReason = "Inference service timeout";
+        SubmissionFailureReasonEnum failureReason = SubmissionFailureReasonEnum.SERVICE_ERROR;
         assertThrows(InvalidRequestDataException.class, () -> {
             submissionService.failSubmission(submission, failureReason);
         });
@@ -338,7 +339,7 @@ public class SubmissionServiceTest {
         Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
         submission.setStatus(SubmissionStatus.PROCESSING);
         submissionService.saveSubmission(submission);
-        String failureReason = "Inference service timeout";
+        SubmissionFailureReasonEnum failureReason = SubmissionFailureReasonEnum.SERVICE_ERROR;
         Submission failedSubmission = submissionService.failSubmission(submission, failureReason);
         assertTrue(failedSubmission.getStatus() == SubmissionStatus.FAILED);
         assertTrue(failedSubmission.getFailureReason().equals(failureReason));

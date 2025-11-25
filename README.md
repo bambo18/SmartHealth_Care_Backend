@@ -134,6 +134,10 @@ export AI_MODEL_SERVICE_EMAIL=[아무 이메일 주소]
 export AI_MODEL_SERVICE_PASSWORD=[아무 비밀번호]
 export AI_MODEL_SERVICE_PASSWORD_HASH=[AI 서비스 비밀번호 해시] # 해시 인증 시크릿 값. https://bcrypt-generator.com/ 에서 AI_MODEL_SERVICE_PASSWORD 값을 해시하여 생성 (12 라운드 필수)
 export AI_MODEL_SERVICE_SECRET=[AI 서비스 시크릿 키] # https://jwtsecrets.com/#generator 에서 256 비트로 설정 후 생성
+export INFERENCE_SERVICE_RETRY_MAX_ATTEMPTS=[AI 서비스 재시도 최대 횟수]
+export INFERENCE_SERVICE_TIMEOUT_SECONDS=[AI 서비스 타임아웃 시간 (초)]
+export INFERENCE_SERVICE_BATCH_SIZE=[AI 서비스 배치 사이즈]
+export INFERENCE_SERVICE_INTERVAL_SECONDS=[AI 서비스 요청 간격 (초)]
 ```
 
 #### Windows (PowerShell)
@@ -145,6 +149,10 @@ export AI_MODEL_SERVICE_SECRET=[AI 서비스 시크릿 키] # https://jwtsecrets
 [System.Environment]::SetEnvironmentVariable('AI_MODEL_SERVICE_PASSWORD', '[아무 비밀번호]', 'User')
 [System.Environment]::SetEnvironmentVariable('AI_MODEL_SERVICE_PASSWORD_HASH', '[AI 서비스 비밀번호 해시]', 'User') # 해시 인증 시크릿 값. https://bcrypt-generator.com/ 에서 AI_MODEL_SERVICE_PASSWORD 값을 해시하여 생성 (12 라운드 필수)
 [System.Environment]::SetEnvironmentVariable('AI_MODEL_SERVICE_SECRET', '[AI 서비스 시크릿 키]', 'User') # https://jwtsecrets.com/#generator 에서 256 비트로 설정 후 생성
+[System.Environment]::SetEnvironmentVariable('INFERENCE_SERVICE_RETRY_MAX_ATTEMPTS', '[AI 서비스 재시도 최대 횟수]', 'User')
+[System.Environment]::SetEnvironmentVariable('INFERENCE_SERVICE_TIMEOUT_SECONDS', '[AI 서비스 타임아웃 시간 (초)]', 'User')
+[System.Environment]::SetEnvironmentVariable('INFERENCE_SERVICE_BATCH_SIZE', '[AI 서비스 배치 사이즈]', 'User')
+[System.Environment]::SetEnvironmentVariable('INFERENCE_SERVICE_INTERVAL_SECONDS', '[AI 서비스 요청 간격 (초)]', 'User')
 ```
 
 ## 빌드 및 서버 실행

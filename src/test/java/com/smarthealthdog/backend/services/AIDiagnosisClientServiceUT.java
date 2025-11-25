@@ -16,13 +16,13 @@ import com.smarthealthdog.backend.domain.Pet;
 import com.smarthealthdog.backend.domain.SubmissionTypeEnum;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
+import com.smarthealthdog.backend.validation.ErrorCode;
 
 @ExtendWith(MockitoExtension.class)
-public class DevAIDiagnosisClientServiceUT {
+public class AIDiagnosisClientServiceUT {
     @InjectMocks
-    private DevAIDiagnosisClientService devAIDiagnosisClientService;
+    private AIDiagnosisClientService aiDiagnosisClientService;
 
-    // Mock all the dependencies
     @Mock
     private FileUploadService fileUploadService;
 
@@ -35,21 +35,21 @@ public class DevAIDiagnosisClientServiceUT {
     @Test
     void performEyeDiagnosis_ShouldThrowIllegalArgumentException_WhenPetIdIsNull() {
         assertThrows(IllegalArgumentException.class, () -> {
-            devAIDiagnosisClientService.performEyeDiagnosis(null, null, 1L);
+            aiDiagnosisClientService.performEyeDiagnosis(null, null, 1L);
         });
     }
 
     @Test
     void performEyeDiagnosis_ShouldThrowIllegalArgumentException_WhenOwnerIdIsNull() {
         assertThrows(IllegalArgumentException.class, () -> {
-            devAIDiagnosisClientService.performEyeDiagnosis(null, 1L, null);
+            aiDiagnosisClientService.performEyeDiagnosis(null, 1L, null);
         });
     }
 
     @Test
     void performEyeDiagnosis_ShouldThrowIllegalArgumentException_WhenBothOwnerIdAndPetIdAreNull() {
         assertThrows(IllegalArgumentException.class, () -> {
-            devAIDiagnosisClientService.performEyeDiagnosis(null, null, null);
+            aiDiagnosisClientService.performEyeDiagnosis(null, null, null);
         });
     }
 
@@ -64,7 +64,7 @@ public class DevAIDiagnosisClientServiceUT {
         when(petService.get(1L)).thenReturn(mockPet);
 
         assertThrows(ResourceNotFoundException.class, () -> {
-            devAIDiagnosisClientService.performEyeDiagnosis(null, 1L, 1L);
+            aiDiagnosisClientService.performEyeDiagnosis(null, 1L, 1L);
         });
     }
 
@@ -77,9 +77,11 @@ public class DevAIDiagnosisClientServiceUT {
         when(mockPet.getOwner()).thenReturn(mockOwner);
 
         when(petService.get(1L)).thenReturn(mockPet);
+        when(submissionService.getMostRecentSubmissionByPet(mockPet))
+            .thenThrow(new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND)); // Simulate no recent submission
 
         // No exception should be thrown
-        devAIDiagnosisClientService.performEyeDiagnosis(null, 1L, 1L);
+        aiDiagnosisClientService.performEyeDiagnosis(null, 1L, 1L);
 
         // Verify that the submissionService was called
         verify(submissionService).createSubmission(mockPet, SubmissionTypeEnum.EYE);

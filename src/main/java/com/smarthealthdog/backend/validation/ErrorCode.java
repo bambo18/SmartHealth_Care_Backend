@@ -34,6 +34,7 @@ public enum ErrorCode {
     // 진단 관련 오류
     INVALID_PAGE_SIZE("페이지 크기는 1에서 15 사이여야 합니다."),
     INVALID_SORT_PROPERTY("정렬 속성이 올바르지 않습니다."),
+    REQUEST_TOO_FREQUENT("진단 요청이 너무 자주 발생했습니다. 잠시 후 다시 시도해주세요."),
 
     // URL 쿼리 파리미터 관련 오류
     INVALID_PARAMETER_TYPE("요청 파라미터의 형식이 올바르지 않습니다."),

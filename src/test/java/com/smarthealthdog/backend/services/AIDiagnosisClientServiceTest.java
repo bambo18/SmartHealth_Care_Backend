@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.smarthealthdog.backend.domain.Permission;
 import com.smarthealthdog.backend.domain.PermissionEnum;
@@ -35,7 +36,7 @@ import com.smarthealthdog.backend.repositories.UserRepository;
 @TestInstance(Lifecycle.PER_CLASS)
 @SpringBootTest
 @ActiveProfiles("test")
-public class DevAIDiagnosisClientServiceTest {
+public class AIDiagnosisClientServiceTest {
     @MockitoBean
     private FileUploadService fileUploadService;
 
@@ -61,10 +62,16 @@ public class DevAIDiagnosisClientServiceTest {
     private SubmissionRepository submissionRepository;
 
     @Autowired
-    private DevAIDiagnosisClientService devAIDiagnosisClientService;
+    private AIDiagnosisClientService aiDiagnosisClientService;
 
     @BeforeAll
     public void setup() {
+        ReflectionTestUtils.setField(
+            aiDiagnosisClientService,
+            "inferenceIntervalSeconds",
+            0
+        );
+
         // iterate over Enum values and create permissions
         // // --- General User Permissions (User & Profile) ---
         // CAN_VIEW_OWN_PROFILE("can_view_own_profile", "자신의 프로필 보기"),
@@ -121,21 +128,21 @@ public class DevAIDiagnosisClientServiceTest {
     @Test
     void performEyeDiagnosis_ShouldThrowException_WhenPetIdIsNull() {
         assertThrows(IllegalArgumentException.class, () -> {
-            devAIDiagnosisClientService.performEyeDiagnosis(null, null, 1L);
+            aiDiagnosisClientService.performEyeDiagnosis(null, null, 1L);
         });
     }
 
     @Test
     void performEyeDiagnosis_ShouldThrowException_WhenOwnerIdIsNull() {
         assertThrows(IllegalArgumentException.class, () -> {
-            devAIDiagnosisClientService.performEyeDiagnosis(null, 1L, null);
+            aiDiagnosisClientService.performEyeDiagnosis(null, 1L, null);
         });
     }
 
     @Test
     void performEyeDiagnosis_ShouldThrowException_WhenPetNotFound() {
         assertThrows(ResourceNotFoundException.class, () -> {
-            devAIDiagnosisClientService.performEyeDiagnosis(null, 999L, 1L);
+            aiDiagnosisClientService.performEyeDiagnosis(null, 999L, 1L);
         });
     }
 
@@ -143,13 +150,17 @@ public class DevAIDiagnosisClientServiceTest {
     void performEyeDiagnosis_ShouldThrowException_WhenOwnerIdDoesNotMatch() {
         assertThrows(ResourceNotFoundException.class, () -> {
             // Assuming pet with ID 1 exists but does not belong to owner with ID 999
-            devAIDiagnosisClientService.performEyeDiagnosis(null, 1L, 999L);
+            aiDiagnosisClientService.performEyeDiagnosis(null, 1L, 999L);
         });
     }
 
     @Test
     void performEyeDiagnosis_ShouldPass_WhenValidPetIdAndOwnerId() {
-        devAIDiagnosisClientService.performEyeDiagnosis(null, 1L, 1L);
+        Pet pet = petService.listByOwner(
+            userService.getUserByEmail("email@email.com").orElse(null).getId()
+        ).stream().findFirst().orElse(null);
+
+        aiDiagnosisClientService.performEyeDiagnosis(null, pet.getId(), pet.getOwner().getId());
 
         // Check if a submission was created
         long submissionCount = submissionRepository.count();

@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MultipartException;
 
 import com.smarthealthdog.backend.dto.ErrorMessage;
 import com.smarthealthdog.backend.exceptions.ForbiddenException;
@@ -180,6 +181,19 @@ public class GlobalExceptionHandler {
                 List.of(ErrorCode.INVALID_PARAMETER_TYPE.getMessage())
             );
         } 
+
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(errorResponseBody);
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ErrorMessage> handleMultipartException(MultipartException e) {
+        ErrorMessage errorResponseBody = new ErrorMessage(
+            List.of(ErrorCode.INVALID_INPUT.name()),
+            List.of(ErrorCode.INVALID_INPUT.getMessage())
+        );
 
         return ResponseEntity
             .status(HttpStatus.BAD_REQUEST)

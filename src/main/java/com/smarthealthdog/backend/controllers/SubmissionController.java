@@ -21,9 +21,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.smarthealthdog.backend.dto.diagnosis.get.DiagnosisResult;
 import com.smarthealthdog.backend.dto.diagnosis.get.SubmissionDetail;
 import com.smarthealthdog.backend.dto.diagnosis.get.SubmissionPage;
+import com.smarthealthdog.backend.dto.diagnosis.get.UrineMeasurementResult;
 import com.smarthealthdog.backend.dto.diagnosis.update.SubmissionResultRequest;
+import com.smarthealthdog.backend.dto.diagnosis.update.SubmissionStatusUpdateRequest;
+import com.smarthealthdog.backend.dto.diagnosis.update.SubmissionUrineTestUpdateRequest;
 import com.smarthealthdog.backend.services.SubmissionService;
 
 import jakarta.validation.Valid;
@@ -99,25 +103,56 @@ public class SubmissionController {
         );
     }
 
-    @PatchMapping("/{id}")
+    @PatchMapping("/{id}/eye")
     @PreAuthorize("hasAuthority('can_update_health_records')")
     public ResponseEntity<Void> updateDiagnosis(
             @PathVariable("id") UUID submissionId,
             @Valid @RequestBody SubmissionResultRequest request
     ) {
-        submissionService.completeDiagnosis(submissionId, request);
+        submissionService.completeEyeTest(submissionId, request);
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/{id}")
+    @PatchMapping("/{id}/urine")
+    @PreAuthorize("hasAuthority('can_update_health_records')")
+    public ResponseEntity<Void> updateUrineTestResults(
+            @PathVariable("id") UUID submissionId,
+            @Valid @RequestBody SubmissionUrineTestUpdateRequest request 
+    ) {
+        submissionService.completeUrineTest(submissionId, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAuthority('can_update_health_records')")
+    public ResponseEntity<Void> updateSubmissionStatus(
+            @PathVariable("id") UUID submissionId,
+            @RequestBody SubmissionStatusUpdateRequest statusUpdateRequest
+    ) {
+        submissionService.updateSubmissionStatusAfterInference(submissionId, statusUpdateRequest);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{id}/eye")
     @PreAuthorize("hasAuthority('can_view_own_health_records')")
-    public ResponseEntity<SubmissionDetail> getSubmissionById(
+    public ResponseEntity<SubmissionDetail<DiagnosisResult>> getSubmissionById(
             @PathVariable("id") UUID submissionId,
             @RequestParam(value = "languageCode", required = false) String languageCode,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         Long userId = Long.parseLong(userDetails.getUsername());
         return ResponseEntity.ok(submissionService.getSubmissionAndDiagnosesById(submissionId, languageCode, userId));
+    }
+
+    @GetMapping("/{id}/urine")
+    @PreAuthorize("hasAuthority('can_view_own_health_records')")
+    public ResponseEntity<SubmissionDetail<UrineMeasurementResult>> getUrineSubmissionById(
+            @PathVariable("id") UUID submissionId,
+            @RequestParam(value = "languageCode", required = false) String languageCode,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        Long userId = Long.parseLong(userDetails.getUsername());
+        return ResponseEntity.ok(submissionService.getSubmissionAndUrineMeasurementsById(submissionId, languageCode, userId));
     }
 
     @DeleteMapping("/{id}")

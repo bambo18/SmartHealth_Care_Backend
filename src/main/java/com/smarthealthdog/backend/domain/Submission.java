@@ -50,8 +50,16 @@ public class Submission {
     @Column(name = "completed_at")
     private Instant completedAt;
 
-    @Column(name = "failure_reason", columnDefinition = "TEXT")
-    private String failureReason;
+    @Column(name = "failure_reason")
+    @Enumerated(EnumType.STRING)
+    private SubmissionFailureReasonEnum failureReason;
+
+    @Column(name = "celery_task_string", columnDefinition = "TEXT")
+    private String celeryTaskString;
+
+    @Column(name = "retry_count", nullable = false)
+    @Builder.Default
+    private int retryCount = 0;
 
     @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Diagnosis> diagnoses;

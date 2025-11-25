@@ -110,7 +110,7 @@ public class PetController {
         return ResponseEntity.ok(PetResponse.from(updatedPet));
     }
 
-    @PostMapping("/{id}/diagnoses/eye")
+    @PostMapping("/{id}/submissions/eye")
     @PreAuthorize("hasAuthority('can_use_health_check')")
     public ResponseEntity<Void> addEyeDiagnosis(
             @PathVariable Long id,
@@ -122,19 +122,15 @@ public class PetController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
-    /** 
-     * 추후에 소변 진단 테스트도 여기에 추가 예정
-     */
-
-    //  @PostMapping("/{id}/diagnoses/urine")
-    //  @PreAuthorize("hasAuthority('can_use_health_check')")
-    //  public ResponseEntity<Void> addUrineDiagnosis(
-    //          @PathVariable Long id,
-    //          @RequestPart(value = "image") MultipartFile image,
-    //          @AuthenticationPrincipal UserDetails userDetails
-    //  ) {
-    //      Long ownerId = Long.parseLong(userDetails.getUsername());
-    //      aiDiagnosisClientService.performUrineDiagnosis(image, id, ownerId);
-    //      return ResponseEntity.status(HttpStatus.CREATED).build();
-    //  }
+    @PostMapping("/{id}/submissions/urine")
+    @PreAuthorize("hasAuthority('can_use_health_check')")
+    public ResponseEntity<Void> addUrineDiagnosis(
+            @PathVariable Long id,
+            @RequestPart(value = "image") MultipartFile image,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        Long ownerId = Long.parseLong(userDetails.getUsername());
+        aiDiagnosisClientService.performUrineDiagnosis(image, id, ownerId);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
 }

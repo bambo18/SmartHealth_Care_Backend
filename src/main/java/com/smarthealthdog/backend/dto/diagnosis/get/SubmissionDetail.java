@@ -4,12 +4,13 @@ import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 
+import com.smarthealthdog.backend.domain.SubmissionFailureReasonEnum;
 import com.smarthealthdog.backend.domain.SubmissionTypeEnum;
 
 import lombok.Value;
 
 @Value
-public class SubmissionDetail {
+public class SubmissionDetail<T> {
     private final UUID id;
     private final SubmissionSummaryPetInfo petInfo;
     private final SubmissionTypeEnum type;
@@ -17,8 +18,8 @@ public class SubmissionDetail {
     private final String status; // String representation of the SubmissionStatus
     private final Instant submittedAt;
     private final Instant completedAt;
-    private final String failureReason;
+    private final SubmissionFailureReasonEnum failureReason;
     
     // The collection of all diagnoses associated with this submission
-    private final Set<DiagnosisResult> diagnoses;
+    private final Set<T> results;
 }

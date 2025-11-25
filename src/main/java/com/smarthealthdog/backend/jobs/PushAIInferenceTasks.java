@@ -6,10 +6,11 @@ import java.util.UUID;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.smarthealthdog.backend.domain.PetSpecies;
 import com.smarthealthdog.backend.domain.Submission;
 import com.smarthealthdog.backend.domain.SubmissionStatus;
 import com.smarthealthdog.backend.dto.diagnosis.create.RequestDiagnosisData;
@@ -22,27 +23,30 @@ import lombok.RequiredArgsConstructor;
 @Component
 @RequiredArgsConstructor
 @DisallowConcurrentExecution
-public class DevPushAIInferenceTasks implements Job {
+public class PushAIInferenceTasks implements Job {
     private final ImgUtils imgUtils;
     private final SubmissionRepository submissionRepository;
     private final DiagnosisTaskRequestClient diagnosisTaskRequestClient;
 
+    @Value("${inference-service.batch.size}")
+    private int batchSize;
+
     @Override
     @Transactional
     public void execute(JobExecutionContext context) {
-        List<Submission> submissions = submissionRepository.findFirst100ByStatusOrderBySubmittedAtAsc(SubmissionStatus.PENDING);
+        List<Submission> submissions = submissionRepository.findSubmissionsWaitingToBeProcessedByAmount(
+            SubmissionStatus.PENDING,
+            PageRequest.of(0, batchSize)
+        );
+        
         if (submissions.isEmpty()) {
-            System.out.println("No pending submissions found.");
             return;
         }
 
         List<RequestDiagnosisData> requestDataList = submissions.stream()
             .map(submission -> {
                 String imageURL = imgUtils.getImgUrlForAIWorker(submission.getPhotoUrl());
-                UUID submissionId = submission.getId();
-                PetSpecies species = submission.getPet().getSpecies();
-
-                return new RequestDiagnosisData(imageURL, submissionId, species);
+                return new RequestDiagnosisData(imageURL, submission);
             })
             .toList();
 
