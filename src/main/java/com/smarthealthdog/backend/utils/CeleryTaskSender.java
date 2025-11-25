@@ -74,10 +74,8 @@ public class CeleryTaskSender implements DiagnosisTaskRequestClient {
                 submissions.add(submission);
             }
 
-            stringRedisTemplate.opsForList().rightPushAll(CELERY_QUEUE_NAME, celeryMessages);
-
-            // Save all updated submissions to the database
             submissionRepository.saveAll(submissions);
+            stringRedisTemplate.opsForList().rightPushAll(CELERY_QUEUE_NAME, celeryMessages);
         } catch (Exception e) {
             // TODO: Connect to Sentry or logging system and log the exception
             throw e;
@@ -100,9 +98,7 @@ public class CeleryTaskSender implements DiagnosisTaskRequestClient {
      * 파이썬 Celery 작업 메시지를 생성합니다.
      * @param imagePath CloudFront 이미지 경로
      * @param submissionId 서브미션 ID
-     * @param submissionType 서브미션 타입
-     * @param species 반려동물 종류
-     * @param updateToken 업데이트 토큰
+     * @param species 반려동물 종
      * @return 직렬화된 Celery 메시지 문자열
      * @throws JsonProcessingException
      */
@@ -161,6 +157,13 @@ public class CeleryTaskSender implements DiagnosisTaskRequestClient {
         }
     }
 
+    /**
+     * 파이썬 Celery 작업 메시지를 생성합니다.
+     * @param imagePath CloudFront 이미지 경로
+     * @param submissionId 서브미션 ID
+     * @return 직렬화된 Celery 메시지 문자열
+     * @throws JsonProcessingException
+     */
     private String generateCeleryMessageForUrineTest(
         String imagePath, UUID submissionId
     ) throws JsonProcessingException {
@@ -220,8 +223,7 @@ public class CeleryTaskSender implements DiagnosisTaskRequestClient {
      * 파이썬 Celery 작업의 바디를 생성합니다.
      * @param imagePath CloudFront 이미지 경로
      * @param submissionId 서브미션 ID
-     * @param updateToken 업데이트 토큰
-     * @return
+     * @return 직렬화된 Celery 메시지 문자열
      * @throws JsonProcessingException
      */
     private String generateCeleryBody(

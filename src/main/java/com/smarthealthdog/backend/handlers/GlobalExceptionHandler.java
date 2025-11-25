@@ -147,10 +147,8 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ResponseEntity<ErrorMessage> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
         ErrorMessage errorResponseBody = new ErrorMessage(
-            // List.of(ErrorCode.INVALID_INPUT.name()),
-            // List.of(ErrorCode.INVALID_INPUT.getMessage())
-            List.of(e.getCause().getClass().getSimpleName()),
-            List.of(e.getCause().getMessage())
+            List.of(ErrorCode.INVALID_INPUT.name()),
+            List.of(ErrorCode.INVALID_INPUT.getMessage())
         );
 
         return ResponseEntity
