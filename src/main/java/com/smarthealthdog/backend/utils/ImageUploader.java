@@ -1,9 +1,8 @@
 package com.smarthealthdog.backend.utils;
 
 import java.io.IOException;
-import org.springframework.web.multipart.MultipartFile;
-import com.smarthealthdog.backend.domain.Pet;
 import com.smarthealthdog.backend.dto.diagnosis.create.SubmissionImageUploadEvent;
+import com.smarthealthdog.backend.dto.pets.PetPictureUploadEvent;
 import com.smarthealthdog.backend.dto.users.UserProfilePictureUploadEvent;
 
 public interface ImageUploader {
@@ -12,9 +11,8 @@ public interface ImageUploader {
         UserProfilePictureUploadEvent event
     ) throws IOException;
 
-    String uploadPetImage(
-        Pet pet, 
-        MultipartFile file
+    void uploadPetImage(
+        PetPictureUploadEvent event
     ) throws IOException;
 
     void uploadSubmissionImage(

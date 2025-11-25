@@ -7,14 +7,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-import org.springframework.web.multipart.MultipartFile;
 
-import com.smarthealthdog.backend.domain.Pet;
 import com.smarthealthdog.backend.domain.Submission;
+import com.smarthealthdog.backend.domain.SubmissionFailureReasonEnum;
 import com.smarthealthdog.backend.dto.diagnosis.create.SubmissionImageUploadEvent;
+import com.smarthealthdog.backend.dto.pets.PetPictureUploadEvent;
 import com.smarthealthdog.backend.dto.users.UserProfilePictureUploadEvent;
 import com.smarthealthdog.backend.exceptions.InternalServerErrorException;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
@@ -97,29 +96,27 @@ public class S3Uploader implements ImageUploader {
      */
     @Override
     @Async
-    @Transactional
-    public String uploadPetImage(Pet pet, MultipartFile file) throws IOException {
-        if (file == null || file.getOriginalFilename() == null) {
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void uploadPetImage(PetPictureUploadEvent event) throws IOException {
+        if (event.fileBytes() == null || event.originalFilename() == null) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
         }
 
-        String ext = file.getOriginalFilename()
-                         .substring(file.getOriginalFilename().lastIndexOf("."));
+        String ext = event.originalFilename()
+                         .substring(event.originalFilename().lastIndexOf("."));
         String key = "pets/" + UUID.randomUUID() + ext;
 
         s3Client.putObject(
             PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)
-                .contentType(file.getContentType())
+                .contentType(event.contentType())
                 .build(),
-            RequestBody.fromBytes(file.getBytes())
+            RequestBody.fromBytes(event.fileBytes())
         );
 
-        pet.setProfileImage(key);
-        petRepository.save(pet);
-
-        return key;
+        event.pet().setProfileImage(key);
+        petRepository.save(event.pet());
     }
 
     /**
@@ -157,7 +154,7 @@ public class S3Uploader implements ImageUploader {
             );
         } catch (Exception e) {
             // TODO: 업로드 실패 시, Sentry나 로그 시스템에 알림 전송 기능 필요
-            submissionService.failSubmission(submission, "저장소에 이미지 업로드 실패");
+            submissionService.failSubmission(submission, SubmissionFailureReasonEnum.SERVICE_ERROR);
             throw new InternalServerErrorException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
 
