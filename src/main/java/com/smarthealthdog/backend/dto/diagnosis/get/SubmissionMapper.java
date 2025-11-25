@@ -1,6 +1,7 @@
 package com.smarthealthdog.backend.dto.diagnosis.get;
 
 import com.smarthealthdog.backend.domain.Submission;
+import com.smarthealthdog.backend.domain.UrineMeasurement;
 import com.smarthealthdog.backend.utils.ImgUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -19,7 +20,7 @@ import org.springframework.stereotype.Component;
 public class SubmissionMapper {
     private final ImgUtils imgUtils;
 
-    public SubmissionDetail toSubmissionDetail(
+    public SubmissionDetail<DiagnosisResult> toSubmissionDetailForEyeTest(
             Submission submission, 
             List<Diagnosis> diagnoses, 
             List<ConditionTranslation> translations
@@ -42,7 +43,7 @@ public class SubmissionMapper {
             submission.getPet().getSpecies()
         );
 
-        return new SubmissionDetail(
+        return new SubmissionDetail<DiagnosisResult>(
             submission.getId(),
             petInfo,
             submission.getType(),
@@ -53,6 +54,39 @@ public class SubmissionMapper {
             submission.getFailureReason(),
             diagnoses.stream()
                 .map(diagnosis -> toDiagnosisResult(diagnosis, translations))
+                .collect(Collectors.toSet())
+        );
+    }
+
+    public SubmissionDetail<UrineMeasurementResult> toSubmissionDetailForUrineTest(
+            Submission submission, 
+            List<UrineMeasurement> measurements
+    ) {
+        if (submission == null) {
+            throw new IllegalArgumentException("서브미션이 null일 수 없습니다.");
+        }
+
+        if (measurements == null) {
+            throw new IllegalArgumentException("소변 측정값이 null일 수 없습니다.");
+        }
+
+        SubmissionSummaryPetInfo petInfo = new SubmissionSummaryPetInfo(
+            submission.getPet().getId(),
+            submission.getPet().getName(),
+            submission.getPet().getSpecies()
+        );
+
+        return new SubmissionDetail<UrineMeasurementResult>(
+            submission.getId(),
+            petInfo,
+            submission.getType(),
+            imgUtils.getImgUrl(submission.getPhotoUrl()),
+            submission.getStatus().name(),
+            submission.getSubmittedAt(),
+            submission.getCompletedAt(),
+            submission.getFailureReason(),
+            measurements.stream()
+                .map(this::toUrineMeasurementResult)
                 .collect(Collectors.toSet())
         );
     }
@@ -123,6 +157,13 @@ public class SubmissionMapper {
         return new ConditionTranslationResult(
             translation.getTranslatedName(),
             translation.getTranslatedDescription()
+        );
+    }
+
+    private UrineMeasurementResult toUrineMeasurementResult(UrineMeasurement measurement) {
+        return new UrineMeasurementResult(
+            measurement.getAnalyte().getName(),
+            measurement.getValue()
         );
     }
 }

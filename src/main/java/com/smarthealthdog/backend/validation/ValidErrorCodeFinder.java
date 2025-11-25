@@ -18,6 +18,8 @@ public class ValidErrorCodeFinder {
     private final EmailVerificationCodeRequestErrorCode emailVerificationCodeRequestErrorCode;
     private final LoginRequestErrorCode loginRequestErrorCode;
     private final RefreshTokenRequestErrorCode refreshTokenRequestErrorCode;
+    private final SubmissionUrineTestResultDtoErrorCode submissionUrineTestResultDtoErrorCode;
+    private final SubmissionUrineTestUpdateRequestErrorCode submissionUrineTestUpdateRequestErrorCode;
     private final UserCreateRequestErrorCode userCreateRequestErrorCode;
     private final UpdateUserProfileRequestErrorCode updateUserProfileRequestErrorCode;
 
@@ -43,6 +45,10 @@ public class ValidErrorCodeFinder {
                 return loginRequestErrorCode.getErrorCode(e);
             case "RefreshTokenRequest":
                 return refreshTokenRequestErrorCode.getErrorCode(e);
+            case "SubmissionUrineTestResultDto":
+                return submissionUrineTestResultDtoErrorCode.getErrorCode(e); 
+            case "SubmissionUrineTestUpdateRequest":
+                return submissionUrineTestUpdateRequestErrorCode.getErrorCode(e);
             case "UserCreateRequest":
                 return userCreateRequestErrorCode.getErrorCode(e);
             case "UpdateUserProfileRequest":
