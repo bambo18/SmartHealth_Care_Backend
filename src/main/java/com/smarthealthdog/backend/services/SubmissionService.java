@@ -18,12 +18,18 @@ import com.smarthealthdog.backend.domain.Diagnosis;
 import com.smarthealthdog.backend.domain.Language;
 import com.smarthealthdog.backend.domain.Pet;
 import com.smarthealthdog.backend.domain.Submission;
+import com.smarthealthdog.backend.domain.SubmissionFailureReasonEnum;
 import com.smarthealthdog.backend.domain.SubmissionStatus;
 import com.smarthealthdog.backend.domain.SubmissionTypeEnum;
+import com.smarthealthdog.backend.domain.UrineMeasurement;
+import com.smarthealthdog.backend.dto.diagnosis.get.DiagnosisResult;
 import com.smarthealthdog.backend.dto.diagnosis.get.SubmissionDetail;
 import com.smarthealthdog.backend.dto.diagnosis.get.SubmissionMapper;
 import com.smarthealthdog.backend.dto.diagnosis.get.SubmissionPage;
+import com.smarthealthdog.backend.dto.diagnosis.get.UrineMeasurementResult;
 import com.smarthealthdog.backend.dto.diagnosis.update.SubmissionResultRequest;
+import com.smarthealthdog.backend.dto.diagnosis.update.SubmissionStatusUpdateRequest;
+import com.smarthealthdog.backend.dto.diagnosis.update.SubmissionUrineTestUpdateRequest;
 import com.smarthealthdog.backend.exceptions.InternalServerErrorException;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
@@ -41,6 +47,7 @@ public class SubmissionService {
     private final SubmissionRepository submissionRepository;
     private final ConditionService conditionService;
     private final DiagnosisService diagnosisService;
+    private final UrineMeasurementService urineMeasurementService;
     private final SubmissionMapper submissionMapper;
 
     private static final int MAX_PAGE_SIZE = 15;
@@ -76,6 +83,32 @@ public class SubmissionService {
         
         // 3. 제출 정보 저장
         return submissionRepository.save(submission);
+    }
+
+    @Transactional
+    public void completeUrineTest(UUID submissionId, SubmissionUrineTestUpdateRequest request) { 
+        Submission submission = getSubmissionById(submissionId);
+        if (submission.getStatus() != SubmissionStatus.PROCESSING) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_INPUT);
+        }
+
+        if (request == null) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_INPUT);
+        }
+
+        if (request.getResults() == null || request.getResults().isEmpty()) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_INPUT);
+        }
+
+        // 1. 소변 검사 결과 처리
+        urineMeasurementService.processUrineMeasurements(submission, request);
+
+        // 2. 제출 상태 업데이트
+        submission.setStatus(SubmissionStatus.COMPLETED); 
+        submission.setCompletedAt(Instant.now());
+        
+        // 3. 제출 정보 저장
+        submissionRepository.save(submission);
     }
 
     /**
@@ -119,7 +152,7 @@ public class SubmissionService {
      * @return 업데이트된 제출 정보
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public Submission failSubmission(Submission submission, String failureReason) {
+    public Submission failSubmission(Submission submission, SubmissionFailureReasonEnum failureReason) {
         if (submission.getStatus() != SubmissionStatus.PROCESSING) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_INPUT);
         }
@@ -129,6 +162,16 @@ public class SubmissionService {
         submission.setCompletedAt(Instant.now());
 
         return submissionRepository.save(submission);
+    }
+
+    /**
+     * 반려동물의 가장 최근 제출 정보를 가져옵니다.
+     * @param pet 반려동물 정보
+     * @return 가장 최근 제출 정보
+     */
+    public Submission getMostRecentSubmissionByPet(Pet pet) {
+        return submissionRepository.findTopByPetOrderBySubmittedAtDesc(pet)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND));
     }
 
     /**
@@ -153,7 +196,7 @@ public class SubmissionService {
     }
 
     /**
-     * 진단 ID로 제출 정보와 관련된 진단 및 번역 정보를 함께 가져옵니다.
+     * 진단 ID로 제출 정보와 관련된 안구 질환 진단 및 번역 정보를 함께 가져옵니다.
      * @param id 진단 제출 ID
      * @param languageCode 선호 언어 코드
      * @param userId 사용자 ID
@@ -162,7 +205,7 @@ public class SubmissionService {
      * @throws ResourceNotFoundException 리소스 없음 예외
      * @throws InternalServerErrorException 내부 서버 오류 예외
      */
-    public SubmissionDetail getSubmissionAndDiagnosesById(UUID id, String languageCode, Long userId) {
+    public SubmissionDetail<DiagnosisResult> getSubmissionAndDiagnosesById(UUID id, String languageCode, Long userId) {
         if (id == null) {
             throw new IllegalArgumentException("Submission ID must not be null");
         }
@@ -211,7 +254,45 @@ public class SubmissionService {
             throw new InternalServerErrorException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
 
-        return submissionMapper.toSubmissionDetail(submission, diagnoses, translations);
+        return submissionMapper.toSubmissionDetailForEyeTest(submission, diagnoses, translations);
+    }
+
+    public SubmissionDetail<UrineMeasurementResult> getSubmissionAndUrineMeasurementsById(
+        UUID id, 
+        String languageCode, 
+        Long userId
+    ) {
+        if (id == null) {
+            throw new IllegalArgumentException("Submission ID must not be null");
+        }
+
+        if (languageCode == null) {
+            languageCode = "ko"; // Default to Korean if not provided
+        }
+
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID must not be null");
+        }
+
+        // 1. 서브미션 로드 및 소유자 검증
+        Submission submission = submissionRepository.findByIdWithPetAndUser(id)
+            .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        if (submission.getStatus() == SubmissionStatus.DELETED) {
+            throw new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+
+        if (!submission.getPet().getOwner().getId().equals(userId)) {
+            throw new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+
+        // 2. 소변 검사 결과 로드
+        List<UrineMeasurement> measurements = urineMeasurementService.getUrineMeasurementsForSubmission(submission);
+        if (measurements.isEmpty()) {
+            throw new InternalServerErrorException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+
+        return submissionMapper.toSubmissionDetailForUrineTest(submission, measurements);
     }
 
     /**
@@ -343,5 +424,37 @@ public class SubmissionService {
     @Transactional
     public Submission saveSubmission(Submission submission) {
         return submissionRepository.save(submission);
+    }
+
+    /**
+     * AI 추론 후 제출 상태를 업데이트합니다. 준비 상태, 실패 상태로 전환할 수 있습니다.
+     * @param submissionId 제출 ID
+     * @param statusUpdateRequest 상태 업데이트 요청
+     */
+    @Transactional
+    public void updateSubmissionStatusAfterInference(UUID submissionId, SubmissionStatusUpdateRequest statusUpdateRequest) {
+        Submission submission = getSubmissionById(submissionId);
+
+        // 현재 상태가 PROCESSING, COMPLETED, DELETED인 경우 상태 업데이트 불가
+        if (
+            submission.getStatus() == SubmissionStatus.PROCESSING ||
+            submission.getStatus() == SubmissionStatus.COMPLETED ||
+            submission.getStatus() == SubmissionStatus.DELETED
+        ) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_INPUT);
+        }
+
+        submission.setStatus(statusUpdateRequest.getStatus());
+        if (statusUpdateRequest.getStatus() == SubmissionStatus.FAILED) {
+            submission.setFailureReason(statusUpdateRequest.getFailureReason());
+            submission.setCompletedAt(Instant.now());
+        } else if (
+            statusUpdateRequest.getStatus() == SubmissionStatus.PENDING
+        ) {
+            submission.setCompletedAt(null);
+            submission.setFailureReason(null);
+        }
+
+        submissionRepository.save(submission);
     }
 }
