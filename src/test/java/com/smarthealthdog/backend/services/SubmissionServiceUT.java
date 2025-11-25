@@ -66,7 +66,7 @@ public class SubmissionServiceUT {
         when(submissionRepository.findById(any(UUID.class))).thenReturn(java.util.Optional.of(mockSubmission));
 
         assertThrows(InvalidRequestDataException.class, () -> {
-            submissionService.completeDiagnosis(UUID.randomUUID(), null);
+            submissionService.completeEyeTest(UUID.randomUUID(), null);
         });
     }
 
@@ -77,7 +77,7 @@ public class SubmissionServiceUT {
         when(submissionRepository.findById(any(UUID.class))).thenReturn(java.util.Optional.of(mockSubmission));
 
         assertThrows(InvalidRequestDataException.class, () -> {
-            submissionService.completeDiagnosis(UUID.randomUUID(), null);
+            submissionService.completeEyeTest(UUID.randomUUID(), null);
         });
     }
 
@@ -88,7 +88,7 @@ public class SubmissionServiceUT {
         when(submissionRepository.findById(any(UUID.class))).thenReturn(java.util.Optional.of(mockSubmission));
 
         assertThrows(InvalidRequestDataException.class, () -> {
-            submissionService.completeDiagnosis(UUID.randomUUID(), new SubmissionResultRequest());
+            submissionService.completeEyeTest(UUID.randomUUID(), new SubmissionResultRequest());
         });
     }
 
@@ -102,7 +102,7 @@ public class SubmissionServiceUT {
         request.setResults(null);
 
         assertThrows(InvalidRequestDataException.class, () -> {
-            submissionService.completeDiagnosis(UUID.randomUUID(), request);
+            submissionService.completeEyeTest(UUID.randomUUID(), request);
         });
     }
 
@@ -116,7 +116,7 @@ public class SubmissionServiceUT {
         SubmissionResultRequest request = new SubmissionResultRequest();
         request.setResults(List.of(new DiagnosisResultDto()));
 
-        submissionService.completeDiagnosis(UUID.randomUUID(), request);
+        submissionService.completeEyeTest(UUID.randomUUID(), request);
         verify(submissionRepository).save(mockSubmission);
     }
 

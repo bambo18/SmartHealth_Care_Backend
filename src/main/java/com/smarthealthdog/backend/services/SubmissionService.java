@@ -54,13 +54,13 @@ public class SubmissionService {
     private static final List<String> ALLOWED_SORT_PROPERTIES = List.of("submittedAt", "completedAt", "status");
 
     /**
-     * 제출된 진단 결과를 처리하고 제출 상태를 완료로 업데이트합니다.
+     * 제출된 안구 질환 진단 결과를 처리하고 제출 상태를 완료로 업데이트합니다. 
      * @param submissionId 제출 ID
      * @param request 제출 결과 요청 객체
      * @return 업데이트된 제출 정보
      */
     @Transactional
-    public Submission completeDiagnosis(UUID submissionId, SubmissionResultRequest request) {
+    public Submission completeEyeTest(UUID submissionId, SubmissionResultRequest request) {
         Submission submission = getSubmissionById(submissionId);
         if (submission.getStatus() != SubmissionStatus.PROCESSING) {
             throw new InvalidRequestDataException(ErrorCode.INVALID_INPUT);
@@ -85,6 +85,11 @@ public class SubmissionService {
         return submissionRepository.save(submission);
     }
 
+    /**
+     * 제출된 소변 검사 결과를 처리하고 제출 상태를 완료로 업데이트합니다.
+     * @param submissionId 제출 ID
+     * @param request 소변 검사 결과 요청 객체
+     */
     @Transactional
     public void completeUrineTest(UUID submissionId, SubmissionUrineTestUpdateRequest request) { 
         Submission submission = getSubmissionById(submissionId);

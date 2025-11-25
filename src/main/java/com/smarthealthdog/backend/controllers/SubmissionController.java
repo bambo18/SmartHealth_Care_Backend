@@ -109,7 +109,7 @@ public class SubmissionController {
             @PathVariable("id") UUID submissionId,
             @Valid @RequestBody SubmissionResultRequest request
     ) {
-        submissionService.completeDiagnosis(submissionId, request);
+        submissionService.completeEyeTest(submissionId, request);
         return ResponseEntity.ok().build();
     }
 
