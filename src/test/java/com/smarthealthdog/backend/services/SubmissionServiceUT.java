@@ -26,6 +26,7 @@ import com.smarthealthdog.backend.domain.Diagnosis;
 import com.smarthealthdog.backend.domain.Language;
 import com.smarthealthdog.backend.domain.Pet;
 import com.smarthealthdog.backend.domain.Submission;
+import com.smarthealthdog.backend.domain.SubmissionFailureReasonEnum;
 import com.smarthealthdog.backend.domain.SubmissionStatus;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.diagnosis.get.SubmissionMapper;
@@ -149,7 +150,7 @@ public class SubmissionServiceUT {
         when(mockSubmission.getStatus()).thenReturn(SubmissionStatus.COMPLETED);
 
         assertThrows(InvalidRequestDataException.class, () -> {
-            submissionService.failSubmission(mockSubmission, "Some failure reason");
+            submissionService.failSubmission(mockSubmission, SubmissionFailureReasonEnum.SERVICE_ERROR);
         });
     }
 
@@ -159,7 +160,7 @@ public class SubmissionServiceUT {
         when(mockSubmission.getStatus()).thenReturn(SubmissionStatus.PROCESSING);
         when(submissionRepository.save(any(Submission.class))).thenReturn(mockSubmission);
 
-        submissionService.failSubmission(mockSubmission, "Some failure reason");
+        submissionService.failSubmission(mockSubmission, SubmissionFailureReasonEnum.SERVICE_ERROR);
         verify(submissionRepository).save(mockSubmission);
     }
 
@@ -275,7 +276,7 @@ public class SubmissionServiceUT {
             List.of(1), mockLanguage)).thenReturn(List.of(mock(ConditionTranslation.class)));
 
         submissionService.getSubmissionAndDiagnosesById(submissionId, "en", 1L);
-        verify(submissionMapper).toSubmissionDetail(
+        verify(submissionMapper).toSubmissionDetailForEyeTest(
             any(Submission.class), any(List.class), any(List.class)
         );
     }

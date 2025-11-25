@@ -28,6 +28,7 @@ import com.smarthealthdog.backend.domain.PetSpecies;
 import com.smarthealthdog.backend.domain.Role;
 import com.smarthealthdog.backend.domain.RoleEnum;
 import com.smarthealthdog.backend.domain.Submission;
+import com.smarthealthdog.backend.domain.SubmissionFailureReasonEnum;
 import com.smarthealthdog.backend.domain.SubmissionStatus;
 import com.smarthealthdog.backend.domain.SubmissionTypeEnum;
 import com.smarthealthdog.backend.domain.User;
@@ -321,7 +322,7 @@ public class SubmissionServiceTest {
         Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
         submission.setStatus(SubmissionStatus.COMPLETED);
         submissionService.saveSubmission(submission);
-        String failureReason = "Inference service timeout";
+        SubmissionFailureReasonEnum failureReason = SubmissionFailureReasonEnum.SERVICE_ERROR;
         assertThrows(InvalidRequestDataException.class, () -> {
             submissionService.failSubmission(submission, failureReason);
         });
@@ -338,7 +339,7 @@ public class SubmissionServiceTest {
         Submission submission = submissionService.createSubmission(pet, SubmissionTypeEnum.EYE);
         submission.setStatus(SubmissionStatus.PROCESSING);
         submissionService.saveSubmission(submission);
-        String failureReason = "Inference service timeout";
+        SubmissionFailureReasonEnum failureReason = SubmissionFailureReasonEnum.SERVICE_ERROR;
         Submission failedSubmission = submissionService.failSubmission(submission, failureReason);
         assertTrue(failedSubmission.getStatus() == SubmissionStatus.FAILED);
         assertTrue(failedSubmission.getFailureReason().equals(failureReason));
