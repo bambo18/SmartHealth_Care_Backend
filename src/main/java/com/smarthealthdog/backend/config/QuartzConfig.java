@@ -20,7 +20,9 @@ import org.springframework.scheduling.quartz.SchedulerFactoryBean;
 import org.springframework.scheduling.quartz.SpringBeanJobFactory;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import com.smarthealthdog.backend.jobs.DevPushAIInferenceTasks;
+import com.smarthealthdog.backend.jobs.PushAIInferenceTasks;
+import com.smarthealthdog.backend.jobs.RemoveServiceFailureAIInferenceTasks;
+import com.smarthealthdog.backend.jobs.RetryAIInferenceTasks;
 
 
 @Configuration
@@ -35,7 +37,9 @@ public class QuartzConfig {
             DataSource dataSource, 
             PlatformTransactionManager transactionManager, 
             JobFactory jobFactory, 
-            Trigger jobTrigger
+            Trigger pushAIInferenceTaskTrigger,
+            Trigger removeServiceErrorTasksTrigger,
+            Trigger retryJobTrigger
     ) {
         Properties properties = new Properties();
         properties.putAll(quartzProperties.getProperties());
@@ -44,14 +48,14 @@ public class QuartzConfig {
         scheduler.setDataSource(dataSource);
         scheduler.setTransactionManager(transactionManager);
         scheduler.setJobFactory(jobFactory);
-        scheduler.setTriggers(jobTrigger);
+        scheduler.setTriggers(pushAIInferenceTaskTrigger, removeServiceErrorTasksTrigger, retryJobTrigger);
         scheduler.setQuartzProperties(properties);
 
         return scheduler;
     }
 
     @Bean
-    public CronTrigger jobTrigger(JobDetail aiInferenceJobDetail) {
+    public CronTrigger pushAIInferenceTaskTrigger(JobDetail aiInferenceJobDetail) {
         CronTriggerFactoryBean cronTriggerFactoryBean = new CronTriggerFactoryBean();
         cronTriggerFactoryBean.setJobDetail(aiInferenceJobDetail);
         cronTriggerFactoryBean.setCronExpression("0/20 * * * * ?"); // For testing: run every 20 seconds
@@ -66,11 +70,65 @@ public class QuartzConfig {
     }
 
     @Bean
+    public CronTrigger removeServiceErrorTasksTrigger(JobDetail removeServiceErrorTasksJobDetail) {
+        CronTriggerFactoryBean cronTriggerFactoryBean = new CronTriggerFactoryBean();
+        cronTriggerFactoryBean.setJobDetail(removeServiceErrorTasksJobDetail);
+        
+        // Delete every 10 minutes
+        cronTriggerFactoryBean.setCronExpression("0 0/10 * * * ?");
+        try {
+            cronTriggerFactoryBean.afterPropertiesSet();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to set up remove service error tasks cron trigger", e);
+        }
+        return cronTriggerFactoryBean.getObject();
+    }
+
+    @Bean
+    public CronTrigger retryJobTrigger(JobDetail retryAIInferenceJobDetail) {
+        CronTriggerFactoryBean cronTriggerFactoryBean = new CronTriggerFactoryBean();
+        cronTriggerFactoryBean.setJobDetail(retryAIInferenceJobDetail);
+        cronTriggerFactoryBean.setCronExpression("0 0/1 * * * ?"); // For testing: run every minute
+
+        try {
+            cronTriggerFactoryBean.afterPropertiesSet();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to set up retry cron trigger", e);
+        }
+
+        return cronTriggerFactoryBean.getObject();
+    }
+
+    @Bean
     public JobDetail aiInferenceJobDetail() {
         JobDetailFactoryBean jobDetailFactoryBean = new JobDetailFactoryBean();
-        jobDetailFactoryBean.setJobClass(DevPushAIInferenceTasks.class);
+        jobDetailFactoryBean.setJobClass(PushAIInferenceTasks.class);
         jobDetailFactoryBean.setName("PushAIInferenceTasksJob");
         jobDetailFactoryBean.setDescription("Job to push AI inference tasks");
+        jobDetailFactoryBean.setDurability(true);
+        jobDetailFactoryBean.afterPropertiesSet();
+
+        return jobDetailFactoryBean.getObject();
+    }
+
+    @Bean
+    public JobDetail removeServiceErrorTasksJobDetail() {
+        JobDetailFactoryBean jobDetailFactoryBean = new JobDetailFactoryBean();
+        jobDetailFactoryBean.setJobClass(RemoveServiceFailureAIInferenceTasks.class);
+        jobDetailFactoryBean.setName("RemoveServiceErrorTasksJob");
+        jobDetailFactoryBean.setDescription("Job to remove service error tasks");
+        jobDetailFactoryBean.setDurability(true);
+        jobDetailFactoryBean.afterPropertiesSet();
+
+        return jobDetailFactoryBean.getObject();
+    }
+
+    @Bean
+    public JobDetail retryAIInferenceJobDetail() {
+        JobDetailFactoryBean jobDetailFactoryBean = new JobDetailFactoryBean();
+        jobDetailFactoryBean.setJobClass(RetryAIInferenceTasks.class);
+        jobDetailFactoryBean.setName("RetryAIInferenceTasksJob");
+        jobDetailFactoryBean.setDescription("Job to retry AI inference tasks");
         jobDetailFactoryBean.setDurability(true);
         jobDetailFactoryBean.afterPropertiesSet();
 
