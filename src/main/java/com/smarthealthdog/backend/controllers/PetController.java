@@ -24,7 +24,10 @@ import com.smarthealthdog.backend.dto.CreatePetRequest;
 import com.smarthealthdog.backend.dto.PartialUpdatePetRequest;
 import com.smarthealthdog.backend.dto.PetResponse;
 import com.smarthealthdog.backend.dto.UpdatePetRequest;
+import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.services.PetService;
+import com.smarthealthdog.backend.services.WalkService;
+import com.smarthealthdog.backend.validation.ErrorCode;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +36,7 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/pets")
 @RequiredArgsConstructor
 public class PetController {
-
+    private final WalkService walkService;
     private final PetService petService;
 
     /** 반려동물 등록 */
@@ -53,8 +56,15 @@ public class PetController {
     /** 단건 조회 (명세서: { status, pet } 구조) */
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('can_view_own_pet_detail')")
-    public ResponseEntity<PetResponse> get(@PathVariable Long id) {
+    public ResponseEntity<PetResponse> get(
+        @PathVariable Long id,
+        @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        Long ownerId = Long.parseLong(userDetails.getUsername());
         Pet pet = petService.get(id);
+        if (pet.getOwner().getId() != ownerId) {
+            throw new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
         return ResponseEntity.ok(PetResponse.from(pet));
     }
 
@@ -107,6 +117,7 @@ public class PetController {
         Pet updatedPet = petService.partialUpdate(id, updates, Long.parseLong(userDetails.getUsername()), profilePicture);
         return ResponseEntity.ok(PetResponse.from(updatedPet));
     }
+        
 }
 //클라이언트 (json요청) -> petController(요청 수신 & dto변환) ->
 //petService(비즈니스 로직, db작업) -> petRepository(jpa퀴러) ->

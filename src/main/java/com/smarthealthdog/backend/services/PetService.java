@@ -73,8 +73,10 @@ public class PetService {
      */
     @Transactional(readOnly = true)
     public Pet get(Long id) {
-        return petRepository.findById(id)
+        Pet pet = petRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        return pet;
     }
 
     /**
