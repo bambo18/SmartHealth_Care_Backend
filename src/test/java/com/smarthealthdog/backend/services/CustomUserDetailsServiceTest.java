@@ -69,6 +69,12 @@ public class CustomUserDetailsServiceTest {
             "test-email-verification-secret"
         );
 
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "allowedEmails",
+            "test@test.com" 
+        );
+
         Permission loginPermission = new Permission();
         loginPermission.setName(PermissionEnum.CAN_RESET_PASSWORD);
         loginPermission.setDescription("Can reset password");
@@ -142,7 +148,7 @@ public class CustomUserDetailsServiceTest {
     @Transactional
     void loadUserByUsername_ShouldReturnUserDetails_WhenUserExists() {
         User user = userRepository.findByEmail("test@test.com").orElseThrow();
-        UserDetails sameUser1 = customUserDetailsService.loadUserByUsername(user.getId().toString());
+        UserDetails sameUser1 = customUserDetailsService.loadUserByUsername(user.getPublicId().toString());
 
         assertTrue(sameUser1.getUsername().equals(user.getId().toString()));
 

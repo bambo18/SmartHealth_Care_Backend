@@ -46,9 +46,9 @@ import com.smarthealthdog.backend.repositories.RefreshTokenRepository;
 import com.smarthealthdog.backend.repositories.RoleRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.services.EmailVerificationService;
-import com.smarthealthdog.backend.services.UserService;
+import com.smarthealthdog.backend.utils.ImageUploader;
+import com.smarthealthdog.backend.utils.ImgUtils;
 import com.smarthealthdog.backend.utils.JWTUtils;
-import com.smarthealthdog.backend.utils.S3Uploader;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -90,10 +90,10 @@ public class UserControllerTest {
     private EmailVerificationService emailVerificationService;
 
     @MockitoBean
-    private S3Uploader s3Uploader;
+    private ImageUploader imageUploader;
 
     @Autowired
-    private UserService userService;
+    private ImgUtils imgUtils;
 
     SecretKey key;
 
@@ -173,9 +173,22 @@ public class UserControllerTest {
         );
 
         ReflectionTestUtils.setField(
-            userService,
-            "cloudFrontUrl",
-            "https://dummy-cloudfront-url.com"
+            emailVerificationService,
+            "allowedEmails",
+            "validuser@example.com," +
+            "invaliduser@example.com" 
+        );
+
+        ReflectionTestUtils.setField(
+            imgUtils,
+            "localStorageUrlPrefix",
+            "http://localhost:8080/images/"
+        );
+
+        ReflectionTestUtils.setField(
+            imgUtils,
+            "aiModelServiceUrlPrefix",
+            "http://localhost:9090/ai/images/"
         );
     }
 
@@ -281,7 +294,7 @@ public class UserControllerTest {
         assertNotNull(userProfile);
         assertTrue(userProfile.email().equals("validuser@example.com"));
         assertTrue(userProfile.nickname().equals("validuser"));
-        assertTrue(userProfile.profilePicture() == null);
+        assertTrue(userProfile.profilePicture() == null, "Profile picture should be null initially, but was: " + userProfile.profilePicture());
     }
 
     @Test

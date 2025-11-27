@@ -6,12 +6,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.smarthealthdog.backend.domain.SocialLoginUser;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.LoginResponse;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
 import com.smarthealthdog.backend.exceptions.BadCredentialsException;
 import com.smarthealthdog.backend.exceptions.ForbiddenException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
+import com.smarthealthdog.backend.utils.OAuthClient;
 import com.smarthealthdog.backend.validation.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
@@ -22,7 +25,9 @@ public class AuthService {
     private final EmailVerificationService emailVerificationService;
     private final RefreshTokenService refreshTokenService;
     private final RefreshTokenCleanupService refreshTokenCleanupService;
+    private final SocialLoginUserService socialLoginUserService;
     private final UserService userService;
+    private final OAuthClient oAuthClient;
 
     /**
      * 로그인 시 액세스 토큰과 리프레시 토큰 생성
@@ -125,6 +130,46 @@ public class AuthService {
         }
     }
 
+    /**
+     * 카카오 소셜 로그인으로 유저 회원가입
+     * @param accessToken 카카오 액세스 토큰
+     * @return 생성된 유저 객체
+     */
+    @Transactional
+    public User registerUserViaKakaoInfo(String accessToken) {
+        JsonNode kakaoInfo;
+        try {
+            kakaoInfo = oAuthClient.getKakaoUserInfo(accessToken);
+        } catch (Exception e) {
+            throw new BadCredentialsException(ErrorCode.SOCIAL_LOGIN_FAILURE);
+        }
+
+        if (kakaoInfo == null || kakaoInfo.isEmpty()) {
+            throw new BadCredentialsException(ErrorCode.SOCIAL_LOGIN_FAILURE);
+        }
+
+        if (!kakaoInfo.has("id")) {
+            throw new BadCredentialsException(ErrorCode.SOCIAL_LOGIN_FAILURE);
+        }
+
+        String id = kakaoInfo.get("id").asText();
+        if (id == null || id.isEmpty()) {
+            throw new BadCredentialsException(ErrorCode.SOCIAL_LOGIN_FAILURE);
+        }
+
+        SocialLoginUser existingSocialLoginUser = socialLoginUserService.getKakaoSocialLoginUser(id);
+        if (existingSocialLoginUser != null) {
+            User existingUser = existingSocialLoginUser.getUser();
+            return userService.updateUserWithKakaoUserInfo(existingUser, existingSocialLoginUser, kakaoInfo);
+        }
+
+        return userService.createUserWithKakaoUserInfo(kakaoInfo);
+    }
+
+    /**
+     * 이메일 인증 토큰 전송
+     * @param email
+     */
     @Transactional
     public void sendEmailVerification(String email) {
         userService.getUserByEmail(email).ifPresent(_ -> {

@@ -1,5 +1,3 @@
-//이 파일은 controller -> db 사이의 핵심 로직 처리자 
-//예외 처리, 트랜직션, jpa연동을 맡아서 실제 데이터 변경을 책임짐
 package com.smarthealthdog.backend.services;
 
 import java.io.IOException;

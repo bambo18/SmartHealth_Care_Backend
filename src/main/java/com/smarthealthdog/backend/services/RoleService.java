@@ -21,4 +21,9 @@ public class RoleService {
         return roleRepository.findByName(RoleEnum.USER)
             .orElseThrow(() -> new RuntimeException("Role 'USER' not found"));
     }
+
+    public Role getSocialUserRole() {
+        return roleRepository.findByName(RoleEnum.SOCIAL_ACCOUNT_USER)
+            .orElseThrow(() -> new RuntimeException("Role 'SOCIAL_USER' not found"));
+    }
 }

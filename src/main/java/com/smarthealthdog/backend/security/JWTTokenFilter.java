@@ -45,8 +45,8 @@ public class JWTTokenFilter extends OncePerRequestFilter {
             String jwt = parseJwt(request);
             if (jwt != null) {
                 refreshTokenService.validateAccessToken(jwt); // Validate the token and throw exception if invalid
-                String userId = refreshTokenService.getClaimsFromToken(jwt).getPayload().getSubject();
-                UserDetails userDetails = userDetailsService.loadUserByUsername(userId);
+                String userPublicId = refreshTokenService.getClaimsFromToken(jwt).getPayload().getSubject();
+                UserDetails userDetails = userDetailsService.loadUserByUsername(userPublicId);
 
                 UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(

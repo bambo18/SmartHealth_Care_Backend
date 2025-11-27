@@ -3,7 +3,6 @@ package com.smarthealthdog.backend.controllers;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -46,6 +45,7 @@ import com.smarthealthdog.backend.dto.LoginRequest;
 import com.smarthealthdog.backend.dto.LoginResponse;
 import com.smarthealthdog.backend.dto.RefreshTokenRequest;
 import com.smarthealthdog.backend.dto.UserCreateRequest;
+import com.smarthealthdog.backend.dto.auth.EmailVerificationCodeSentEvent;
 import com.smarthealthdog.backend.repositories.EmailVerificationRepository;
 import com.smarthealthdog.backend.repositories.RefreshTokenRepository;
 import com.smarthealthdog.backend.repositories.RoleRepository;
@@ -53,8 +53,9 @@ import com.smarthealthdog.backend.repositories.UserRepository;
 import com.smarthealthdog.backend.services.EmailService;
 import com.smarthealthdog.backend.services.EmailVerificationService;
 import com.smarthealthdog.backend.services.UserService;
+import com.smarthealthdog.backend.utils.ImageUploader;
+import com.smarthealthdog.backend.utils.ImgUtils;
 import com.smarthealthdog.backend.utils.JWTUtils;
-import com.smarthealthdog.backend.utils.S3Uploader;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -95,11 +96,14 @@ public class AuthControllerTest {
     @Autowired
     private EmailVerificationService emailVerificationService;
 
+    @Autowired
+    private ImgUtils imgUtils;
+
     @MockitoBean
     private EmailService emailService;
 
     @MockitoBean
-    private S3Uploader s3Uploader;
+    private ImageUploader imageUploader;
 
     SecretKey key;
 
@@ -109,7 +113,7 @@ public class AuthControllerTest {
 
     @BeforeAll
     void setupAll() {
-        doNothing().when(emailService).sendEmailVerification(anyString(), anyString(), any(EmailVerification.class));
+        doNothing().when(emailService).sendEmailVerification(any(EmailVerificationCodeSentEvent.class));
 
         // Runs once before all tests
         Role bannedRole = new Role();
@@ -133,12 +137,6 @@ public class AuthControllerTest {
         roleRepository.save(userRole);
 
         roleRepository.flush();
-
-        ReflectionTestUtils.setField(
-            userService,
-            "cloudFrontUrl",
-            "https://dummy-cloudfront-url.com"
-        );
 
         // Initialize JWTUtils
         // generate a 64 hex character secret key for HS256
@@ -183,6 +181,30 @@ public class AuthControllerTest {
             emailVerificationService,
             "emailVerificationSecret",
             "test-email-verification-secret"
+        );
+
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "allowedEmails",
+            "test@example.com," + 
+            "testuser@example.com," + 
+            "refreshtestuser@example.com," + 
+            "logoutuser@example.com," + 
+            "validuser@example.com," + 
+            "loginuser@example.com," + 
+            "user@example.com"
+        );
+
+        ReflectionTestUtils.setField(
+            imgUtils,
+            "localStorageUrlPrefix",
+            "http://localhost:8080/images/"
+        );
+
+        ReflectionTestUtils.setField(
+            imgUtils,
+            "aiModelServiceUrlPrefix",
+            "http://localhost:9090/ai/images/"
         );
     }
 

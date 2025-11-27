@@ -3,20 +3,26 @@ package com.smarthealthdog.backend.services;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.smarthealthdog.backend.domain.Role;
+import com.smarthealthdog.backend.domain.SocialLoginProvider;
+import com.smarthealthdog.backend.domain.SocialLoginUser;
 import com.smarthealthdog.backend.domain.User;
 import com.smarthealthdog.backend.dto.UpdateUserProfileRequest;
 import com.smarthealthdog.backend.dto.UserProfile;
+import com.smarthealthdog.backend.exceptions.InternalServerErrorException;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
+import com.smarthealthdog.backend.repositories.SocialLoginUserRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
+import com.smarthealthdog.backend.utils.ImgUtils;
 import com.smarthealthdog.backend.validation.ErrorCode;
 import com.smarthealthdog.backend.validation.NicknameValidator;
 import com.smarthealthdog.backend.validation.PasswordValidator;
@@ -26,15 +32,15 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Service
 public class UserService {
+    private final ImgUtils imgUtils;
     private final UserRepository userRepository;
+    private final SocialLoginProviderService socialLoginProviderService;
+    private final SocialLoginUserRepository socialLoginUserRepository;
     private final RoleService roleService;
     private final PasswordEncoder passwordEncoder;
     private final PasswordValidator passwordValidator;
     private final NicknameValidator nicknameValidator;
     private final FileUploadService fileUploadService;
-
-    @Value("${cloud.aws.cloudfront.domain}")
-    private String cloudFrontUrl;
 
     /**
      * 사용자 비밀번호 확인
@@ -47,14 +53,98 @@ public class UserService {
     }
 
     /**
-     * 사용자 역할을 VERIFIED_USER로 변경
-     * @param user
+     * 카카오 소셜 로그인으로 사용자 생성
+     * @param kakaoUserInfo 카카오에서 제공하는 사용자 정보 JSON
+     * @return 생성된 사용자 객체
      */
     @Transactional
-    public void changeRoleToVerifiedUser(User user) {
-        Role userRole = roleService.getUserRole();
-        user.setRole(userRole);
-        userRepository.save(user);
+    public User createUserWithKakaoUserInfo(JsonNode kakaoUserInfo) {
+        if (kakaoUserInfo == null || kakaoUserInfo.isEmpty()) {
+            throw new IllegalArgumentException("카카오 사용자 정보가 유효하지 않습니다.");
+        }
+
+        JsonNode kakaoAccount = kakaoUserInfo.get("kakao_account");
+        if (kakaoAccount == null || kakaoAccount.isEmpty()) {
+            throw new InternalServerErrorException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+
+        String email = kakaoAccount.path("email").asText();
+        if (email == null || email.isBlank()) {
+            email = "kakao_" + UUID.randomUUID().toString().replaceAll("-", "") + "@noemail.smarthealthdog.com";
+        }
+
+        JsonNode profile = kakaoAccount.path("profile");
+
+        String nickname = profile.path("nickname").asText();
+        if (nickname == null || nickname.isBlank() || !nicknameValidator.isValid(nickname)) {
+            String uuid = UUID.randomUUID().toString();
+            nickname = uuid;
+        }
+
+        String profilePictureUrl = profile.path("profile_image_url").asText();
+        if (profilePictureUrl == null || profilePictureUrl.isBlank()) {
+            profilePictureUrl = null;
+        }
+        
+        // 3. User Object Assembly
+        Role userRole = roleService.getSocialUserRole();
+        
+        // Kakao 소셜 로그인의 경우 비밀번호는 null로 설정
+        User newUser = User.builder()
+                            .nickname(nickname) // The robustly determined nickname
+                            .email(email)       // The validated email
+                            .password(null)     // Social login has no password
+                            .profilePic(profilePictureUrl)
+                            .role(userRole)
+                            .build();
+        userRepository.save(newUser);
+
+        SocialLoginProvider kakaoProvider = socialLoginProviderService.getKakaoProvider();
+        SocialLoginUser socialLoginUser = SocialLoginUser.builder()
+            .user(newUser)
+            .provider(kakaoProvider)
+            .providerUserId(kakaoUserInfo.path("id").asText())
+            .extraData(kakaoUserInfo.toString())
+            .build();
+        socialLoginUserRepository.save(socialLoginUser);
+
+        return newUser;
+    }
+
+    /**
+     * 카카오 소셜 로그인으로 기존 사용자 정보 업데이트
+     * @param existingUser 기존 사용자 객체
+     * @param kakaoSocialLoginUser 카카오 소셜 로그인 연결 정보 객체
+     * @param kakaoUserInfo 카카오에서 제공하는 사용자 정보 JSON
+     * @return 업데이트된 사용자 객체
+     */
+    @Transactional
+    public User updateUserWithKakaoUserInfo(
+            User existingUser, 
+            SocialLoginUser kakaoSocialLoginUser, 
+            JsonNode kakaoUserInfo
+    ) {
+        String nickname = kakaoUserInfo.path("kakao_account").path("profile").get("nickname").asText();
+        if (!nicknameValidator.isValid(nickname)) {
+            String uuid = UUID.randomUUID().toString();
+            nickname = uuid;
+        }
+        existingUser.setNickname(nickname);
+
+        String email = kakaoUserInfo.path("kakao_account").get("email").asText();
+        if (email != null && !email.isBlank()) {
+            existingUser.setEmail(email);
+        }
+
+        String profilePictureUrl = kakaoUserInfo.path("kakao_account").path("profile").get("profile_image_url").asText();
+        existingUser.setProfilePic(profilePictureUrl);
+
+        userRepository.save(existingUser);
+
+        kakaoSocialLoginUser.setExtraData(kakaoUserInfo.toString());
+        socialLoginUserRepository.save(kakaoSocialLoginUser);
+
+        return existingUser;
     }
 
     /**
@@ -131,7 +221,7 @@ public class UserService {
             user.getId(),
             user.getNickname(),
             user.getEmail(),
-            getUserProfilePictureURL(user)
+            user.getProfilePic() != null ? imgUtils.getImgUrl(user.getProfilePic()) : null
         );
     }
 
@@ -155,17 +245,11 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
-    /**
-     * 사용자 프로필 사진 URL 생성
-     * @param user
-     * @return 프로필 사진 URL
-     */
-    public String getUserProfilePictureURL(User user) {
-        if (user == null || user.getProfilePic() == null || user.getProfilePic().isBlank()) {
-            return null;
-        }
-        return cloudFrontUrl + "/" + user.getProfilePic();
+    public User getUserByPublicId(UUID publicId) {
+        return userRepository.findByPublicId(publicId)
+            .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND));
     }
+
 
     /**
      * 이메일 인증 실패 횟수 증가
@@ -256,14 +340,14 @@ public class UserService {
             user.getId(),
             user.getNickname(),
             user.getEmail(),
-            getUserProfilePictureURL(user)
+            user.getProfilePic() != null ? imgUtils.getImgUrl(user.getProfilePic()) : null
         );
     }
 
     /**
      * 닉네임으로 사용자 존재 여부 확인
      * @param nickname
-     * @return true if user exists, false otherwise
+     * @return Boolean
      */
     public boolean userExistsByNickname(String nickname) {
         // Logic to check if a user exists by nickname
@@ -273,7 +357,7 @@ public class UserService {
     /**
      * ID로 사용자 존재 여부 확인
      * @param id
-     * @return true if user exists, false otherwise
+     * @return Boolean
      */
     public boolean userExistsById(Long id) {
         // Logic to check if a user exists by ID

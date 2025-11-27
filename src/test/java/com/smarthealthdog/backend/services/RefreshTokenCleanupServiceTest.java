@@ -36,6 +36,7 @@ import com.smarthealthdog.backend.repositories.PermissionRepository;
 import com.smarthealthdog.backend.repositories.RefreshTokenRepository;
 import com.smarthealthdog.backend.repositories.RoleRepository;
 import com.smarthealthdog.backend.repositories.UserRepository;
+import com.smarthealthdog.backend.utils.ImgUtils;
 import com.smarthealthdog.backend.utils.JWTUtils;
 
 import io.jsonwebtoken.Claims;
@@ -83,20 +84,35 @@ public class RefreshTokenCleanupServiceTest {
     @Autowired
     private PasswordEncoder tokenEncoder;
 
+    @Autowired
+    private ImgUtils imgUtils;
+
     SecretKey key;
 
     @BeforeAll
     void setUp() {
         ReflectionTestUtils.setField(
-            userService,
-            "cloudFrontUrl",
-            "https://dummy-cloudfront-url.com"
+            imgUtils,
+            "localStorageUrlPrefix",
+            "http://localhost:8080/images/"
+        );
+
+        ReflectionTestUtils.setField(
+            imgUtils,
+            "aiModelServiceUrlPrefix",
+            "http://localhost:9090/ai/images/"
         );
 
         ReflectionTestUtils.setField(
             emailVerificationService,
             "emailVerificationSecret",
             "test-email-verification-secret"
+        );
+
+        ReflectionTestUtils.setField(
+            emailVerificationService,
+            "allowedEmails",
+            "testuser@example.com" 
         );
 
         Permission resetPasswordPermission = new Permission();

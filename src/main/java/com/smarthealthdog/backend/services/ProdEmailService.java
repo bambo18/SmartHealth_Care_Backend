@@ -7,8 +7,10 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
-import com.smarthealthdog.backend.domain.EmailVerification;
+import com.smarthealthdog.backend.dto.auth.EmailVerificationCodeSentEvent;
 
 @Service
 @Profile("prod")
@@ -28,8 +30,13 @@ public class ProdEmailService implements EmailService {
      * @param token
      * @param emailVerification
      */
+    @Override
     @Async
-    public void sendEmailVerification(String email, String token, EmailVerification emailVerification) {
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void sendEmailVerification(EmailVerificationCodeSentEvent event) {
+        String email = event.email();
+        String token = event.token();
+
         if (email == null) {
             throw new IllegalArgumentException("이메일이 null입니다.");
         }

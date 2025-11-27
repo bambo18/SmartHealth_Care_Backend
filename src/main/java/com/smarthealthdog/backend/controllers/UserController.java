@@ -72,5 +72,4 @@ public class UserController {
         var body = walkService.listThisWeekWalks(userId, timezone);
         return ResponseEntity.ok(body);
     }
-    
 }

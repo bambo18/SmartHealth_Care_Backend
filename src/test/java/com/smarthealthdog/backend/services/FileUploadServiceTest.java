@@ -13,13 +13,13 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
-import com.smarthealthdog.backend.utils.S3Uploader;
+import com.smarthealthdog.backend.utils.ImageUploader;
 
 @SpringBootTest
 @ActiveProfiles("test")
 public class FileUploadServiceTest {
     @MockitoBean
-    private S3Uploader s3Uploader;
+    private ImageUploader imageUploader;
 
     @Autowired
     private FileUploadService fileUploadService;
@@ -46,7 +46,7 @@ public class FileUploadServiceTest {
 
     @Test
     void uploadProfilePicture_ShouldThrowException_WhenFileSizeExceedsLimit() {
-        byte[] largeFile = new byte[6 * 1024 * 1024]; // 6MB
+        byte[] largeFile = new byte[6 * 1024 * 1024]; // 6MB file
         new Random().nextBytes(largeFile);
         MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", largeFile);
 
@@ -80,7 +80,6 @@ public class FileUploadServiceTest {
 
     @Test
     void uploadProfilePicture_ShouldPass_WhenFileIsValid() throws Exception {
-        // Test implementation here
         ClassPathResource imgFile = new ClassPathResource("test-image.jpg");
         MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", imgFile.getInputStream());
 

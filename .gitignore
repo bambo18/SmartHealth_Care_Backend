@@ -42,3 +42,6 @@ out/
 
 ### auto-generated files ###
 src/main/resources/schema.sql
+
+### static files ###
+src/main/resources/static/

@@ -2,13 +2,18 @@ package com.smarthealthdog.backend.services;
 
 import java.io.IOException;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.smarthealthdog.backend.domain.Pet;
+import com.smarthealthdog.backend.domain.Submission;
 import com.smarthealthdog.backend.domain.User;
+import com.smarthealthdog.backend.dto.diagnosis.create.SubmissionImageUploadEvent;
+import com.smarthealthdog.backend.dto.pets.PetPictureUploadEvent;
+import com.smarthealthdog.backend.dto.users.UserProfilePictureUploadEvent;
 import com.smarthealthdog.backend.exceptions.InvalidRequestDataException;
 import com.smarthealthdog.backend.utils.FileUtils;
-import com.smarthealthdog.backend.utils.S3Uploader;
 import com.smarthealthdog.backend.validation.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
@@ -16,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Service
 public class FileUploadService {
-    private final S3Uploader s3Uploader;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * S3 버킷에 프로필 사진 업로드
@@ -36,7 +41,67 @@ public class FileUploadService {
             throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
         }
 
-        s3Uploader.uploadProfilePicture(user, fileBytes, file.getOriginalFilename(), file.getContentType());
+        UserProfilePictureUploadEvent event = new UserProfilePictureUploadEvent(
+            user, 
+            fileBytes, 
+            file.getOriginalFilename(), 
+            file.getContentType()
+        );
+
+        eventPublisher.publishEvent(event);
+    }
+
+    /**
+     * 반려동물 사진 업로드
+     * @param pet 반려동물 엔티티
+     * @param file 업로드할 이미지 파일
+     * @throws IOException 파일 업로드 중 오류 발생 시
+     * @throws InvalidRequestDataException 유효하지 않은 이미지 파일인 경우 발생
+     */
+    public void uploadPetImage(Pet pet, MultipartFile file) throws IOException, InvalidRequestDataException {
+        validateImageFile(file);
+
+        byte[] fileBytes;
+        try {
+            fileBytes = file.getBytes(); // READS THE TEMPORARY FILE NOW (on the main thread)
+        } catch (IOException e) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
+        }
+
+        PetPictureUploadEvent event = new PetPictureUploadEvent(
+            pet,
+            fileBytes, 
+            file.getOriginalFilename(), 
+            file.getContentType()
+        );
+
+        eventPublisher.publishEvent(event);
+    }
+
+    /**
+     * 진단 이미지 업로드
+     * @param submissionId 진단 ID
+     * @param file 업로드할 이미지 파일
+     * @throws InvalidRequestDataException 유효하지 않은 이미지 파일인 경우 발생
+     */
+    public void updateDiagnosisImage(Submission submission, MultipartFile file) throws InvalidRequestDataException {
+        validateImageFile(file);
+
+        byte[] fileBytes;
+        try {
+            fileBytes = file.getBytes(); // READS THE TEMPORARY FILE NOW (on the main thread)
+        } catch (IOException e) {
+            throw new InvalidRequestDataException(ErrorCode.INVALID_IMAGE);
+        }
+
+        SubmissionImageUploadEvent event = new SubmissionImageUploadEvent(
+            submission, 
+            fileBytes, 
+            file.getOriginalFilename(), 
+            file.getContentType()
+        );
+
+        eventPublisher.publishEvent(event);
     }
 
     /**

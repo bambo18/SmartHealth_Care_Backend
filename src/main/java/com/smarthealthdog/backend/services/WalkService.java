@@ -315,4 +315,3 @@ public class WalkService {
         return Math.round(v * 10.0) / 10.0;
     }
 }
-
