@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,8 +24,10 @@ import com.smarthealthdog.backend.dto.CreatePetRequest;
 import com.smarthealthdog.backend.dto.PartialUpdatePetRequest;
 import com.smarthealthdog.backend.dto.PetResponse;
 import com.smarthealthdog.backend.dto.UpdatePetRequest;
-import com.smarthealthdog.backend.services.AIDiagnosisClientService;
+import com.smarthealthdog.backend.exceptions.ResourceNotFoundException;
 import com.smarthealthdog.backend.services.PetService;
+import com.smarthealthdog.backend.services.AIDiagnosisClientService;
+import com.smarthealthdog.backend.validation.ErrorCode;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -55,8 +56,15 @@ public class PetController {
     /** 단건 조회 (명세서: { status, pet } 구조) */
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('can_view_own_pet_detail')")
-    public ResponseEntity<PetResponse> get(@PathVariable Long id) {
+    public ResponseEntity<PetResponse> get(
+        @PathVariable Long id,
+        @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        Long ownerId = Long.parseLong(userDetails.getUsername());
         Pet pet = petService.get(id);
+        if (pet.getOwner().getId() != ownerId) {
+            throw new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
         return ResponseEntity.ok(PetResponse.from(pet));
     }
 
@@ -109,6 +117,7 @@ public class PetController {
         Pet updatedPet = petService.partialUpdate(id, updates, Long.parseLong(userDetails.getUsername()), profilePicture);
         return ResponseEntity.ok(PetResponse.from(updatedPet));
     }
+
 
     @PostMapping("/{id}/submissions/eye")
     @PreAuthorize("hasAuthority('can_use_health_check')")

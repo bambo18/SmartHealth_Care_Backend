@@ -10,6 +10,7 @@ import com.smarthealthdog.backend.domain.PetSpecies;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 
@@ -18,10 +19,10 @@ import jakarta.validation.constraints.Size;
 //PUT /api/pets/{id} 요청 시 Body로 들어오는 내용과 매핑
 public record UpdatePetRequest(
         @NotBlank @Size(min=1, max=255) String name,
-        @NotBlank PetSpecies species,
+        @NotNull PetSpecies species,
         @Size(max=255) String breed,
-        PetGender gender,
+        @NotNull PetGender gender,
         @PastOrPresent LocalDate birthDate,
-        Boolean neutered,
+        @NotNull Boolean neutered,
         @DecimalMin("0.0") @DecimalMax("9999.9") BigDecimal weightKg
 ) {}
