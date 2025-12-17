@@ -2,6 +2,8 @@ package com.smarthealthdog.backend.handlers;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -36,6 +38,8 @@ public class GlobalExceptionHandler {
 
     @Autowired
     private ValidErrorCodeFinder validErrorCodeFinder;
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     // Spring Security InternalAuthenticationServiceException 예외 처리
     // 사용자의 정보를 로드할 수 없을 때 발생
@@ -231,6 +235,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ResponseEntity<ErrorMessage> handleGenericException(Exception e) {
+        log.error("Unhandled exception caught in GlobalExceptionHandler", e);
+        log.error("Exception message: {}", e.getMessage());
         return ResponseEntity
             .status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(new ErrorMessage(

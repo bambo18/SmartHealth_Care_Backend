@@ -69,8 +69,4 @@ public class Walk {
         // 현재 durationSeconds 필드가 없기 때문에
         // getDurationSeconds()로 계산해서 사용
     }
-
-   
-
-
 }
