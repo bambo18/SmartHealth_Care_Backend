@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+.venv/
+.pyvenv/
+venv/
+cat_models/
+dog_models/
+input/
