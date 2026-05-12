@@ -1,18 +1,28 @@
 spring:
-  application:
-    name: backend
   data:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+
+  redis:
+    host: ${REDIS_HOST}
+    port: ${REDIS_PORT}
+    password: ${REDIS_PASSWORD:}
+
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
+
   jpa:
     hibernate:
       ddl-auto: none
@@ -21,23 +31,19 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
-    # 스키마 자동 생성 설정 (개발 환경에서만 사용 권장)
-    # generate-ddl: true 
 
-    # 스키마를 SQL 파일로 내보내기 설정 (필요시 사용)
-    # properties.javax.persistence.schema-generation.scripts.action: create
-    # properties.javax.persistence.schema-generation.scripts.create-target: src/main/resources/schema.sql
   flyway:
     enabled: true
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
-    user: postgres
+    user: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     baseline-on-migrate: true
     placeholders:
       ai:
         user:
-          email: ${AI_MODEL_SERVICE_EMAIL}
-          password-hash: ${AI_MODEL_SERVICE_PASSWORD_HASH}
+          email: ${AI_MODEL_SERVICE_EMAIL:ai-service@local.test}
+          password-hash: ${AI_MODEL_SERVICE_PASSWORD_HASH:test}
+
   mail:
     host: ${SMTP_HOST}
     username: ${SMTP_USER}
@@ -47,22 +53,12 @@ spring:
         transport:
           protocol: smtp
         smtp:
-          port: 25
+          port: ${SMTP_PORT}
           auth: true
           starttls:
-            enable: true
-            required: true
-  redis:
-    host: ${REDIS_HOST}
-    port: ${REDIS_PORT}
-    password: ${REDIS_PASSWORD:}        # Redis 비밀번호 (필요시 설정)
-    database: 0
-    timeout: 5000ms                      # Connection timeout
-    lettuce:
-      pool:
-        max-active: 8                    # Maximum total connections
-        max-idle: 8                      # Maximum idle connections
-        min-idle: 2                       # Minimum idle connections
+            enable: false
+            required: false
+
   quartz:
     auto-startup: false
     job-store-type: jdbc
@@ -76,6 +72,7 @@ spring:
       org.quartz.scheduler.instanceId: AUTO
       org.quartz.scheduler.instanceName: ClusteredQuartzScheduler
       org.quartz.threadPool.threadCount: 1
+
   security:
     oauth2:
       client:
@@ -85,6 +82,9 @@ spring:
           kakao:
             user-info-uri: https://kapi.kakao.com/v2/user/me
 
+server:
+  port: 8088
+
 logging:
   level:
     org.springframework.security: DEBUG
@@ -93,7 +93,7 @@ jwt:
   secret: ${JWT_SECRET}
   access-token:
     expiration:
-      minutes: 1440 # 1 day (실제 서비스에서는 이 값을 15로 설정 권장)
+      minutes: 1440
   refresh-token:
     expiration:
       days: 7
@@ -102,23 +102,19 @@ jwt:
 app:
   mail:
     from: ${SMTP_FROM}
-    allowed-emails: ${ALLOWED_EMAILS_COMMA_SEPARATED}
+    allowed-emails: ${ALLOWED_EMAILS_COMMA_SEPARATED:}
   token:
     email-verification:
       secret: ${EMAIL_VERIFICATION_SECRET}
-      # 이메일 인증 시도 최대 횟수
       tries:
-        count: 10000 # 최대 10,000회 시도 가능 (실제 서비스에서는 이 값을 5로 설정 권장)
+        count: 10000
         duration:
           days: 1
-      # 이메일 인증 토큰 당 실패 시도 최대 횟수
       failure:
-        attempts: 100 # 최대 100회 실패 허용 (실제 서비스에서는 이 값을 5로 설정 권장)
-      # 이메일 인증 토큰 당 최대 실패 후 잠금 기간 (분)
+        attempts: 100
       lock:
         duration:
           minutes: 30
-      # 이메일 인증 토큰 만료 시간 (분)
       expiration:
         minutes: 15
     password-reset:
@@ -133,9 +129,9 @@ cloud:
       access-key: ${AWS_ACCESS_KEY}
       secret-key: ${AWS_SECRET_KEY}
     s3:
-      bucket: ${AWS_S3_BUCKET}
+      bucket: ${AWS_BUCKET}
     cloudfront:
-      domain: ${AWS_CLOUDFRONT_DOMAIN}
+      domain: ${AWS_CLOUDFRONT_DOMAIN:}
 
 local-storage:
   url-prefix: ${LOCAL_STORAGE_URL_PREFIX}
@@ -150,4 +146,4 @@ inference-service:
   batch:
     size: ${INFERENCE_SERVICE_BATCH_SIZE}
   interval:
-    seconds: ${INFERENCE_SERVICE_INTERVAL_SECONDS} # 사용자가 무작위로 진단 요청을 보낼 때 AI 모델 서비스에 과부하가 걸리지 않도록 요청 간격을 조절하는 데 사용
+    seconds: ${INFERENCE_SERVICE_INTERVAL_SECONDS}
